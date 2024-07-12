@@ -14,6 +14,7 @@
     <arg name="encoding" value="UTF-8"/>
 
     <rule ref="PSR12">
+        <!-- https://github.com/squizlabs/PHP_CodeSniffer/issues/3323 -->
         <exclude name="Squiz.Functions.MultiLineFunctionDeclaration.EmptyLine" />
     </rule>
 </ruleset>
