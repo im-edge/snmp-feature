@@ -25,11 +25,7 @@ use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
-use React\Promise\PromiseInterface;
 use RuntimeException;
-
-use function React\Async\await as reactAwait;
-use function React\Promise\all;
 
 #[ApiNamespace('snmp')]
 class SnmpApi
@@ -59,10 +55,16 @@ class SnmpApi
         string $name,
         ?UuidInterface $deviceUuid = null,
     ): SnmpResponse {
-        return reactAwait(SnmpRequestHandler::appendResultHandlers(
-            $this->getScenario($credentialUuid, $address, $name),
-            $address
-        ));
+        $start = hrtime(true);
+        try {
+            return SnmpRequestHandler::handleRemoteResult(
+                $this->getScenario($credentialUuid, $address, $name),
+                $start,
+                $address
+            );
+        } catch (\Exception $e) {
+            return SnmpRequestHandler::handleRemoteFailure($e, $start, $address);
+        }
     }
 
     #[ApiMethod]
@@ -87,26 +89,35 @@ class SnmpApi
         string $name,
         UuidInterface $deviceUuid = null,
     ): SnmpResponse {
-        $promise = $this->getScenario($credentialUuid, $address, $name)
-            ->then(function ($result) use ($name, $deviceUuid) {
-                $loader = $this->loader;
-                $resultHandler = $loader->resultHandler($name);
-                $nodeUuid = Uuid::fromString('00000000-0000-0000-0000-000000000000');
-                if ($resultHandler->needsWalk()) {
-                    return $resultHandler->getResultObjectInstances($nodeUuid, $deviceUuid, $result);
-                } else {
-                    return $resultHandler->getResultObjectInstance($nodeUuid, $deviceUuid, $result);
-                }
-            });
+        $nodeUuid = Uuid::fromString('00000000-0000-0000-0000-000000000000');
 
-        return reactAwait(SnmpRequestHandler::appendResultHandlers($promise, $address));
+        $start = hrtime(true);
+        try {
+            $result = $this->getScenario($credentialUuid, $address, $name);
+            $resultHandler = $this->loader->resultHandler($name);
+            if ($resultHandler->needsWalk()) {
+                return SnmpRequestHandler::handleRemoteResult(
+                    $resultHandler->getResultObjectInstances($nodeUuid, $deviceUuid, $result),
+                    $start,
+                    $address
+                );
+            } else {
+                return SnmpRequestHandler::handleRemoteResult(
+                    $resultHandler->getResultObjectInstance($nodeUuid, $deviceUuid, $result),
+                    $start,
+                    $address
+                );
+            }
+        } catch (\Exception $e) {
+            return SnmpRequestHandler::handleRemoteFailure($e, $start, $address);
+        }
     }
 
     protected function getScenario(
         UuidInterface $credentialUuid, // differs from @param!!
         SocketAddress $address,
         string $name,
-    ): PromiseInterface {
+    ): array {
         $loader = $this->loader;
         $resultHandler = $loader->resultHandler($name);
         $oids = $resultHandler->getScenarioOids();
@@ -121,9 +132,7 @@ class SnmpApi
             foreach ($oids as $oid => $alias) {
                 $tables[$alias] = $this->socket->walk($oid, (string) $address, $community);
             }
-            return all($tables)->then(function ($result) use ($resultHandler) {
-                return $resultHandler->fixResult($result);
-            });
+            return $resultHandler->fixResult($tables);
         } else {
             return $this->socket->get($oids, $address, $community);
         }
@@ -144,7 +153,7 @@ class SnmpApi
     #[ApiMethod]
     public function scanIpList(array $ips, SnmpCredential $credential): array
     {
-        return reactAwait(IpListScanner::scan($ips, $credential->securityName, $this->logger));
+        return IpListScanner::scan($ips, $credential->securityName, $this->logger);
     }
 
     #[ApiMethod]
@@ -199,10 +208,17 @@ class SnmpApi
         object $oidList,
     ): SnmpResponse {
         $community = $this->runner->credentials->requireCredential($credentialUuid)->securityName;
-        return reactAwait(SnmpRequestHandler::appendResultHandlers(
-            $this->socket->get((array) $oidList, $address, $community),
-            $address
-        ));
+        $start = hrtime(true);
+        try {
+            return SnmpRequestHandler::handleRemoteResult(
+                $this->socket->get((array) $oidList, $address, $community),
+                $start,
+                $address
+            );
+        } catch (\Exception $e) {
+            return SnmpRequestHandler::handleRemoteFailure($e, $start, $address);
+        }
+
     }
 
     #[ApiMethod]
@@ -214,9 +230,16 @@ class SnmpApi
         ?string $nextOid
     ): SnmpResponse {
         $community = $this->runner->credentials->requireCredential($credentialUuid)->securityName;
-        return reactAwait(SnmpRequestHandler::appendResultHandlers(
-            $this->socket->walk($oid, (string) $address, $community, $limit, $nextOid),
-            $address
-        ));
+        $start = hrtime(true);
+        try {
+            return SnmpRequestHandler::handleRemoteResult(
+                $this->socket->walk($oid, (string) $address, $community, $limit, $nextOid),
+                $start,
+                $address
+            );
+        } catch (\Exception $e) {
+            return SnmpRequestHandler::handleRemoteFailure($e, $start, $address);
+        }
+
     }
 }

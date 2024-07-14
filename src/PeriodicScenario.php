@@ -10,6 +10,7 @@ use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
 use Psr\Log\LoggerInterface;
 use ReflectionClass;
 use RuntimeException;
+use Throwable;
 
 class PeriodicScenario
 {
@@ -51,7 +52,7 @@ class PeriodicScenario
     {
     }
 
-    public function processFailure(SnmpTarget $target, Exception $error)
+    public function processFailure(SnmpTarget $target, Throwable $error)
     {
     }
 }

@@ -2,17 +2,16 @@
 
 namespace IMEdge\SnmpFeature;
 
+use Amp\DeferredFuture;
 use Exception;
 use IMEdge\Snmp\DataType\DataType;
 use IMEdge\Snmp\DataType\DataTypeContextSpecific;
 use Psr\Log\LoggerInterface;
-use React\Promise\Deferred;
-use React\Promise\PromiseInterface;
 use Revolt\EventLoop;
 
 class SnmpWalk
 {
-    protected Deferred $deferred;
+    protected DeferredFuture $deferred;
     protected string $target;
     protected string $community;
     /** @var array<string, DataType> */
@@ -38,7 +37,7 @@ class SnmpWalk
         string $oid,
         string $target,
         #[\SensitiveParameter] string $community
-    ): PromiseInterface {
+    ): array {
         $this->timeoutCount = 0;
         $this->results = [];
         $this->baseOid = $oid;
@@ -48,14 +47,24 @@ class SnmpWalk
         $this->target = $target;
         $this->community = $community;
         // TODO: Multiple OIDs
-        $this->deferred = new Deferred();
+        $this->deferred = new DeferredFuture();
         EventLoop::queue($this->next(...));
+        return $this->deferred->getFuture()->await();
+    }
 
-        // TODO: check whether cancel() really stops
-        $promise = $this->deferred->promise();
-        assert($promise instanceof PromiseInterface);
+    protected function useGetBulk(): bool
+    {
+        return $this->getBulk && ($this->target !== '192.168.178.88:161') && ($this->target !== '192.168.178.88');
+    }
 
-        return $promise;
+    protected function getMaxRepetitions(): int
+    {
+        $maxLimit = 16;
+        if ($this->limit === null) {
+            return $maxLimit;
+        } else {
+            return min($this->limit, $maxLimit);
+        }
     }
 
     protected function next(): void
@@ -66,60 +75,56 @@ class SnmpWalk
         if (!$this->nextOid) {
             throw new \LogicException('Running next() before $nextOid has been set');
         }
-
-        if ($this->getBulk && ($this->target !== '192.168.178.88:161') && ($this->target !== '192.168.178.88')) {
-            $maxLimit = 16;
-            if ($this->limit === null) {
-                $maxRepetitions = $maxLimit;
+        try {
+            if ($this->useGetBulk()) {
+                $result = $this->socket->getBulk(
+                    $this->nextOid,
+                    $this->target,
+                    $this->community,
+                    $this->getMaxRepetitions()
+                );
             } else {
-                $maxRepetitions = min($this->limit, $maxLimit);
+                $result = $this->socket->getNext(
+                    [$this->nextOid],
+                    $this->target,
+                    $this->community
+                );
             }
-            $promise = $this->socket->getBulk(
-                $this->nextOid,
-                $this->target,
-                $this->community,
-                $maxRepetitions
-            );
-        } else {
-            $promise = $this->socket->getNext(
-                [$this->nextOid],
-                $this->target,
-                $this->community
-            );
-        }
-        // TODO: might be changed to:
-        // $promise->then([$this, 'handleResult'], [$this, 'resolve']);
-        $promise->then(function ($result) {
             $this->handleResult($result);
-        }, function (Exception $e) {
-            if (preg_match('/timeout/i', $e->getMessage())) {
-                if ($this->timeoutCount < 3) {
-                    $this->timeoutCount++;
-                    $this->logger->notice(sprintf(
-                        'Walk for %s timed out %d time(s), trying again',
-                        $this->target,
-                        $this->timeoutCount
-                    ));
-                    EventLoop::queue($this->next(...));
-                    return;
-                } else {
-                    $this->logger->notice(sprintf(
-                        'Walk for %s timed out %d time(s), giving up',
-                        $this->target,
-                        $this->timeoutCount
-                    ));
-                    $this->timeoutCount = 0;
-                }
+        } catch (Exception $e) {
+            $this->handleError($e);
+        }
+    }
+
+    protected function handleError(Exception $e)
+    {
+        if (preg_match('/timeout/i', $e->getMessage())) {
+            if ($this->timeoutCount < 3) {
+                $this->timeoutCount++;
+                $this->logger->notice(sprintf(
+                    'Walk for %s timed out %d time(s), trying again',
+                    $this->target,
+                    $this->timeoutCount
+                ));
+                EventLoop::queue($this->next(...));
+                return;
+            } else {
+                $this->logger->notice(sprintf(
+                    'Walk for %s timed out %d time(s), giving up',
+                    $this->target,
+                    $this->timeoutCount
+                ));
+                $this->timeoutCount = 0;
             }
-            $this->logger->error('SnmpWalk::next: ' . $e->getMessage());
-            // TODO: Do not resolve with half-complete result. How to deal with timeouts?
-            $this->resolve();
-        });
+        }
+        $this->logger->error('SnmpWalk::next: ' . $e->getMessage());
+        // TODO: Do not resolve with half-complete result. How to deal with timeouts?
+        $this->resolve();
     }
 
     protected function resolve(): void
     {
-        $this->deferred->resolve($this->results);
+        $this->deferred->complete($this->results);
     }
 
     /**

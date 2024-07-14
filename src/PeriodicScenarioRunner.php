@@ -2,6 +2,7 @@
 
 namespace IMEdge\SnmpFeature;
 
+use Amp\Cancellation;
 use Evenement\EventEmitterInterface;
 use Evenement\EventEmitterTrait;
 use Exception;
@@ -12,14 +13,12 @@ use IMEdge\Metrics\MetricDatatype;
 use IMEdge\SnmpFeature\Scenario\PollSysInfo;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTarget;
 use Psr\Log\LoggerInterface;
-use React\Promise\Deferred;
-use React\Promise\Promise;
-use React\Promise\PromiseInterface;
 use Revolt\EventLoop;
 use Throwable;
 
-use function React\Promise\all;
-use function React\Promise\reject;
+use function Amp\async;
+use function Amp\Future\await;
+use function Amp\Future\awaitAll;
 
 class PeriodicScenarioRunner implements EventEmitterInterface
 {
@@ -41,8 +40,8 @@ class PeriodicScenarioRunner implements EventEmitterInterface
     protected array $pendingRequests = [];
     /** @var PeriodicScenarioSingleRequest[] */
     protected array $runningRequests = [];
-    /** @var Promise[] */
-    protected array $runningPromises = [];
+    /** @var Cancellation[] */
+    protected array $runningCancellations = [];
     protected int $nextSlot;
     protected float $interval;
     protected float $timeForSend;
@@ -87,10 +86,10 @@ class PeriodicScenarioRunner implements EventEmitterInterface
         $this->pendingRequests = [];
         $this->runningRequests = [];
         $this->stopEnqueueingTimer();
-        foreach ($this->runningPromises as $promise) {
-            $promise->cancel();
+        foreach ($this->runningCancellations as $cancellation) {
+            $cancellation->cancel(); // TODO: shutting down exception, don't log
         }
-        $this->runningPromises = [];
+        $this->runningCancellations = [];
     }
 
     protected function logConfigurationInfo(): void
@@ -116,7 +115,7 @@ class PeriodicScenarioRunner implements EventEmitterInterface
             new Metric('schedulingSlots', $this->slots->slotCount),
             new Metric('scheduledTargets', count($this->scenario->targets->targets)),
         ];
-        foreach ($this->socket->getStats() as $name => $value) {
+        foreach ($this->socket->stats->getStats() as $name => $value) {
             $metrics[] = new Metric($name, $value, MetricDatatype::COUNTER);
         }
         $this->emit(self::ON_MEASUREMENT, [new Measurement(
@@ -204,7 +203,7 @@ class PeriodicScenarioRunner implements EventEmitterInterface
             }
             $idx = spl_object_id($request);
             $this->runningRequests[$idx] = $request;
-            $this->runningPromises[$idx] = $this->sendRequest($request);
+            EventLoop::queue(fn () => $this->sendRequest($request));
             $this->scheduledRunsTotal++;
         }
         if (empty($this->pendingRequests)) {
@@ -212,62 +211,36 @@ class PeriodicScenarioRunner implements EventEmitterInterface
         }
     }
 
-    protected function prepareRequest(PeriodicScenarioSingleRequest $request): PromiseInterface
+    protected function reallySendRequest(PeriodicScenarioSingleRequest $request): array
     {
         $method = $request->requestType;
-        try {
-            // TODO: Accept target and credential in SnmpSocket
-            $address = $request->target->address->ip;
-            $community = $this->runner->credentials->requireCredential($request->target->credentialUuid)->securityName;
-            if ($method === 'get') {
-                // $this->logger->notice('Preparing GET');
-                $snmpRequest = $this->socket->$method($request->oidList->oidList, $address, $community);
-            } else {
-                // $this->logger->notice('Preparing WALK');
-                // walk
-                try {
-                    $tables = [];
-                    foreach ($request->oidList->oidList as $oid => $alias) {
-                        // $this->logger->notice("walking $oid => $alias");
-                        $tables[$alias] = $this->socket->walk($oid, $address, $community);
-                    }
-                    $snmpRequest = all($tables)->then(function ($result) {
-                        return $this->scenario->resultHandler->fixResult($result);
-                    });
-                    // notice(sprintf('WALKING %d tables', count($tables)) . implode(', ', array_keys($tables)));
-                } catch (Throwable $e) {
-                    $this->logger->notice('Preparing walk failed: ' . $e->getMessage());
-                    return reject(new Exception($e->getMessage()));
-                }
-            }
-        } catch (Exception $e) {
-            $this->logger->error($e->getMessage());
-            $this->forget($request);
-            $deferred = new Deferred();
-            EventLoop::queue(fn () => $deferred->reject($e));
-            return $deferred->promise();
+        // TODO: Accept target and credential in SnmpSocket
+        $address = $request->target->address->ip;
+        $community = $this->runner->credentials->requireCredential($request->target->credentialUuid)->securityName;
+        if ($method === 'get') {
+            return await([async(fn () => $this->socket->get($request->oidList->oidList, $address, $community))])[0];
         }
-        // $this->logger->notice("Sending $method" . json_encode($request->oidList->oidList));
-        return $snmpRequest;
+        $tables = [];
+        foreach ($request->oidList->oidList as $oid => $alias) {
+            $tables[$alias] = async(fn () => $this->socket->walk($oid, $address, $community));
+        }
+        [$errors, $responses] = awaitAll($tables);
+        foreach ($errors as $alias => $error) {
+            $this->logger->error("Walk for $alias failed: " . $error->getMessage());
+        }
+
+        return $this->scenario->resultHandler->fixResult($responses);
     }
 
-    protected function sendRequest(PeriodicScenarioSingleRequest $request): PromiseInterface
+    protected function sendRequest(PeriodicScenarioSingleRequest $request): void
     {
+        // TODO: $this->runningCancellations[$idx] =
         try {
-            return $this->prepareRequest($request)->then(function ($result) use ($request) {
-                $this->processResult($result, $request);
-            }, function (Exception $reason) use ($request) {
-                $this->processFailure($reason, $request);
-            })->finally(function () use ($request) {
-                $this->forget($request);
-            });
-        } catch (Exception $e) {
-            $this->logger->error($e->getMessage());
-            $this->forget($request);
-            $deferred = new Deferred();
-            EventLoop::queue(fn () => $deferred->reject($e));
-            return $deferred->promise();
+            $this->processResult($this->reallySendRequest($request), $request);
+        } catch (Throwable $reason) {
+            $this->processFailure($reason, $request);
         }
+        $this->forget($request);
     }
 
     protected function processResult($result, PeriodicScenarioSingleRequest $request): void
@@ -286,7 +259,7 @@ class PeriodicScenarioRunner implements EventEmitterInterface
         }
     }
 
-    protected function processFailure(Exception $reason, PeriodicScenarioSingleRequest $request): void
+    protected function processFailure(Throwable $reason, PeriodicScenarioSingleRequest $request): void
     {
         $address = $request->target->address;
         try {
@@ -318,7 +291,7 @@ class PeriodicScenarioRunner implements EventEmitterInterface
         $idx = spl_object_id($request);
         unset($this->pendingRequests[$idx]); // is not set
         unset($this->runningRequests[$idx]);
-        unset($this->runningPromises[$idx]);
+        unset($this->runningCancellations[$idx]); // TODO: unsubscribe?
         if (empty($this->runningRequests) && empty($this->pendingRequests)) {
             $this->emit(self::ON_IDLE);
         }

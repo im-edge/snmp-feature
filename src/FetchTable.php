@@ -2,10 +2,10 @@
 
 namespace IMEdge\SnmpFeature;
 
+use Amp\DeferredFuture;
 use IMEdge\Snmp\DataType\DataType;
 use IMEdge\Snmp\SocketAddress;
-use React\Promise\Deferred;
-use React\Promise\PromiseInterface;
+use Psr\Log\LoggerInterface;
 use Revolt\EventLoop;
 
 use function ltrim;
@@ -14,7 +14,7 @@ use function substr;
 
 class FetchTable
 {
-    protected Deferred $deferred;
+    protected DeferredFuture $deferred;
 
     /** @var array<int|string, array<string, mixed>> */
     protected array $results;
@@ -32,6 +32,7 @@ class FetchTable
 
     public function __construct(
         protected SnmpSocket $socket,
+        protected LoggerInterface $logger,
         protected ?int $limit = null
     ) {
     }
@@ -44,20 +45,17 @@ class FetchTable
         array $columns,
         SocketAddress $target,
         string $community
-    ): PromiseInterface {
+    ): array {
         $this->results = [];
         $this->baseOid = $oid;
         $this->target = $target;
         $this->community = $community;
         $this->columns = $this->pendingColumns = $columns;
 
-        $this->deferred = new Deferred();
+        $this->deferred = new DeferredFuture();
         EventLoop::queue($this->next(...));
 
-        $promise = $this->deferred->promise();
-        assert($promise instanceof PromiseInterface);
-
-        return $promise;
+        return $this->deferred->getFuture()->await();
     }
 
     protected function next(): void
@@ -68,12 +66,11 @@ class FetchTable
         $column = array_shift($this->pendingColumns);
         $this->currentColumn = $column;
         $this->currentPrefix = $this->baseOid . '.' . $column;
-        $this->fetchColumn($column)
-            ->then(function ($result) {
-                $this->handleResult($result);
-            }, function ($e = null) {
-                $this->resolve();
-            });
+        try {
+            $this->handleResult($this->fetchColumn($column));
+        } catch (\Exception $e) {
+            $this->resolve();
+        }
     }
 
     /**
@@ -131,19 +128,19 @@ class FetchTable
         return ltrim($oid, '.');
     }
 
-    protected function fetchIndex(): PromiseInterface
+    protected function fetchIndex(): array
     {
         return $this->fetchColumn('1.1');
     }
 
-    protected function fetchColumn(string $column): PromiseInterface
+    protected function fetchColumn(string $column): array
     {
-        $walk = new Walk($this->socket);
+        $walk = new SnmpWalk($this->socket, $this->logger);
         return $walk->walk($this->baseOid . '.' . $column, $this->target, $this->community);
     }
 
     protected function resolve(): void
     {
-        $this->deferred->resolve($this->results);
+        $this->deferred->complete($this->results);
     }
 }

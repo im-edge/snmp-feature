@@ -2,6 +2,9 @@
 
 namespace IMEdge\SnmpFeature;
 
+use Amp\DeferredFuture;
+use Amp\Socket\InternetAddress;
+use Amp\Socket\ResourceUdpSocket;
 use Evenement\EventEmitterInterface;
 use Evenement\EventEmitterTrait;
 use Exception;
@@ -18,21 +21,15 @@ use IMEdge\Snmp\SnmpMessageInspector;
 use IMEdge\Snmp\SnmpV2Message;
 use IMEdge\Snmp\SocketAddress;
 use IMEdge\Snmp\TrapV2;
-use IMEdge\Snmp\UdpSocketFactory;
 use IMEdge\Snmp\VarBind;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\NullLogger;
-use React\EventLoop\Loop;
-use React\EventLoop\TimerInterface;
-use React\Promise\Deferred;
-use React\Promise\PromiseInterface;
-use React\Datagram\Socket as DatagramSocket;
 use Revolt\EventLoop;
 use RuntimeException;
 use Throwable;
 
-use function React\Promise\resolve;
+use function Amp\Socket\bindUdpSocket;
 
 class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, RequestIdConsumer
 {
@@ -41,52 +38,25 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
 
     public const ON_TRAP = 'trap';
 
-    /** @var array<int, Deferred> */
+    public SnmpSocketStats $stats;
+    protected ?ResourceUdpSocket $socket = null;
+
+    /** @var array<int, DeferredFuture> */
     protected array $pendingRequests = [];
 
     /** @var array<int, array<string, ?string>> */
     protected array $pendingRequestOidLists = [];
 
-    /** @var array<int, TimerInterface> */
+    /** @var array<int, string> */
     protected array $timers = [];
 
-    protected ?DatagramSocket $socket = null;
-
-    protected int $oidsRequestedGet = 0;
-    protected int $oidsRequestedGetNext = 0;
-    protected int $oidsRequestedGetBulk = 0;
-    protected int $oidsRequestedWalk = 0;
-    protected int $oidsReceived = 0;
-    protected int $cntGetRequests = 0;
-    protected int $cntGetBulkRequests = 0;
-    protected int $cntGetNextRequests = 0;
-    protected int $cntWalkRequests = 0;
-    protected int $cntTimeouts = 0;
-    protected int $responsesReceived = 0;
-
     public function __construct(
-        public readonly SocketAddress $socketAddress = new SocketAddress('0.0.0.0'),
+        public readonly string $socketAddress = '0.0.0.0:0',
         public readonly SimpleRequestIdGenerator $idGenerator = new SimpleRequestIdGenerator(),
     ) {
         $this->logger = new NullLogger();
         $this->idGenerator->registerConsumer($this);
-    }
-
-    public function getStats(): array
-    {
-        return [
-            'GetRequests'          => $this->cntGetRequests,
-            'GetBulkRequests'      => $this->cntGetBulkRequests,
-            'GetNextRequests'      => $this->cntGetNextRequests,
-            'WalkRequests'         => $this->cntWalkRequests,
-            'RequestedOidsGet'     => $this->oidsRequestedGet,
-            'RequestedOidsGetBulk' => $this->oidsRequestedGetBulk,
-            'RequestedOidsGetNext' => $this->oidsRequestedGetNext,
-            'RequestedOidsWalk'    => $this->oidsRequestedWalk,
-            'ReceivedOids'         => $this->oidsReceived,
-            'ReceivedResponses'    => $this->responsesReceived,
-            'Timeouts'             => $this->cntTimeouts,
-        ];
+        $this->stats = new SnmpSocketStats();
     }
 
     public function hasPendingRequests(): bool
@@ -106,14 +76,13 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
         array $oidList,
         string $target,
         #[\SensitiveParameter] string $community
-    ): PromiseInterface {
+    ): array {
         $id = $this->idGenerator->getNextId();
         $varBinds = $this->prepareAndScheduleOidList($id, $oidList);
         $request = new SnmpV2Message($community, new GetRequest($varBinds, $id));
-        $this->cntGetRequests++;
-        $this->oidsRequestedGet += count($varBinds);
-
-        return $this->send($request, $target);
+        $this->stats->cntGetRequests++;
+        $this->stats->oidsRequestedGet += count($varBinds);
+        return $this->send($request, self::getInternetAddress($target));
     }
 
     /**
@@ -121,9 +90,9 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
      */
     public function getNext(
         array $oidList,
-        string $ip,
+        string $target,
         #[\SensitiveParameter] string $community
-    ): PromiseInterface {
+    ): array {
         $requestedOidList = [];
         foreach ($oidList as $oid) {
             $requestedOidList[$oid] = null;
@@ -131,10 +100,10 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
         $id = $this->idGenerator->getNextId();
         $varBinds = $this->prepareAndScheduleOidList($id, $requestedOidList);
         $request = new SnmpV2Message($community, new GetNextRequest($varBinds, $id));
-        $this->oidsRequestedGetNext += count($varBinds);
-        $this->cntGetNextRequests++;
+        $this->stats->oidsRequestedGetNext += count($varBinds);
+        $this->stats->cntGetNextRequests++;
 
-        return $this->send($request, $ip);
+        return $this->send($request, self::getInternetAddress($target));
     }
 
     public function getBulk(
@@ -142,14 +111,14 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
         string $target,
         #[\SensitiveParameter] string $community,
         int $maxRepetitions = 10
-    ): PromiseInterface {
+    ): array {
         $id = $this->idGenerator->getNextId();
         $varBinds = $this->prepareAndScheduleOidList($id, [$oid => null]);
         $request = new SnmpV2Message($community, new GetBulkRequest($varBinds, $id, $maxRepetitions));
-        $this->cntGetBulkRequests++;
-        $this->oidsRequestedGetBulk += count($varBinds);
+        $this->stats->cntGetBulkRequests++;
+        $this->stats->oidsRequestedGetBulk += count($varBinds);
 
-        return $this->send($request, $target);
+        return $this->send($request, self::getInternetAddress($target));
     }
 
     public function walk(
@@ -158,13 +127,13 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
         #[\SensitiveParameter] string $community,
         ?int $limit = null,
         ?string $nextOid = null
-    ): PromiseInterface {
+    ): array {
         $walk = new SnmpWalk($this, $this->logger, $limit);
         if ($nextOid !== null) {
             $walk->setNextOid($nextOid);
         }
-        $this->cntWalkRequests++;
-        $this->oidsRequestedWalk++;
+        $this->stats->cntWalkRequests++;
+        $this->stats->oidsRequestedWalk++;
 
         return $walk->walk($oid, $target, $community);
     }
@@ -177,8 +146,8 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
         array $columns,
         SocketAddress|string $target,
         #[\SensitiveParameter] string $community
-    ): PromiseInterface {
-        $fetchTable = new FetchTable($this);
+    ): array {
+        $fetchTable = new FetchTable($this, $this->logger);
         // No stats, seems unused
         return $fetchTable->fetchTable($oid, $columns, SocketAddress::detect($target), $community);
     }
@@ -188,12 +157,12 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
         string $ip,
         string $community,
         int $maxRepetitions = 10
-    ): PromiseInterface {
+    ) {
         // TODO: Multiple OIDs
         $results = [];
-        $deferred = new Deferred();
+        $deferred = new DeferredFuture();
         $error = function ($reason) use ($deferred) {
-            $deferred->reject($reason);
+            $deferred->error($reason);
         };
         $handle = function ($result) use (
             $oid,
@@ -206,7 +175,7 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
             &$handle
         ) {
             if (empty($result)) {
-                $deferred->resolve($results);
+                $deferred->complete($results);
 
                 return;
             }
@@ -217,24 +186,30 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
                 if (str_starts_with($newOid, $oid)) {
                     $results[$newOid] = $value;
                 } else {
-                    $deferred->resolve($results);
+                    $deferred->complete($results);
 
                     return;
                 }
             }
 
-            $this->getBulk($newOid, $ip, $community, $maxRepetitions)
-                ->then($handle, $error);
+            try {
+                $handle($this->getBulk($newOid, $ip, $community, $maxRepetitions));
+            } catch (Exception $e) {
+                $error($e);
+            }
         };
-        $this->getBulk($oid, $ip, $community, $maxRepetitions)
-            ->then($handle, $error);
+        try {
+            $handle($this->getBulk($oid, $ip, $community, $maxRepetitions));
+        } catch (Exception $e) {
+            $error($e);
+        }
 
-        return $deferred->promise();
+        return $deferred->getFuture()->await();
     }
 
     public function sendTrap(SnmpMessage $trap, SocketAddress|string $destination): void
     {
-        $this->send($trap, SocketAddress::detect($destination, 162));
+        $this->send($trap, self::getInternetAddress($destination, 162));
     }
 
     public function hasId(int $id): bool
@@ -242,25 +217,35 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
         return isset($this->pendingRequests[$id]);
     }
 
-    protected function send(SnmpMessage $message, SocketAddress|string $destination): PromiseInterface
+    protected function send(SnmpMessage $message, InternetAddress $destination)
     {
         $pdu = $message->getPdu();
         $wantsResponse = $pdu->wantsResponse();
         if ($wantsResponse) {
-            $deferred = new Deferred();
+            $deferred = new DeferredFuture();
             $id = $pdu->requestId;
             if ($id === null) {
                 throw new RuntimeException('Cannot send a request w/o id');
             }
             $this->pendingRequests[$id] = $deferred;
             $this->scheduleTimeout($id);
-            $result = $deferred->promise();
-        } else {
-            $result = resolve();
-        }
-        $this->socket()->send($message->toBinary(), SocketAddress::detect($destination, 161));
+            $result = $deferred->getFuture();
+            $this->socket()->send($destination, $message->toBinary());
 
-        return $result;
+            return $result->await();
+        } else {
+            $this->socket()->send($destination, $message->toBinary());
+            return null;
+        }
+    }
+
+    protected static function getInternetAddress(string $target, int $defaultPort = 161): InternetAddress
+    {
+        if (str_contains($target, ':')) {
+            return InternetAddress::fromString($target);
+        }
+
+        return InternetAddress::fromString("$target:$defaultPort");
     }
 
     /**
@@ -281,23 +266,26 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
 
     protected function scheduleTimeout(int $id, int $timeout = 45): void
     {
-        $this->timers[$id] = Loop::addTimer($timeout, function () use ($id) {
-            if (isset($this->pendingRequests[$id])) {
-                $deferred = $this->pendingRequests[$id];
-                unset($this->pendingRequests[$id]);
-                unset($this->pendingRequestOidLists[$id]);
-                unset($this->timers[$id]);
-                $this->cntTimeouts++;
-                $deferred->reject(new Exception('Timeout')); // TODO: ErrorStatus, Exception?
-            }
-        });
+        $this->timers[$id] = EventLoop::delay($timeout, fn () => $this->triggerTimeout($id));
+    }
+
+    protected function triggerTimeout(int $id): void
+    {
+        if (isset($this->pendingRequests[$id])) {
+            $deferred = $this->pendingRequests[$id];
+            unset($this->pendingRequests[$id]);
+            unset($this->pendingRequestOidLists[$id]);
+            unset($this->timers[$id]);
+            $this->stats->cntTimeouts++;
+            $deferred->error(new Exception('Timeout triggered')); // TODO: ErrorStatus, Exception?
+        }
     }
 
     protected function clearPendingRequest(int $id): void
     {
         unset($this->pendingRequests[$id]);
         unset($this->pendingRequestOidLists[$id]);
-        Loop::cancelTimer($this->timers[$id]);
+        EventLoop::cancel($this->timers[$id]);
         unset($this->timers[$id]);
     }
 
@@ -310,17 +298,13 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
 
     protected function rejectPendingRequest(int $id, Throwable $error): void
     {
-        if (! $error instanceof Exception) {
-            $error = new RuntimeException($error->getMessage(), $error->getCode(), $error);
-        }
         $deferred = $this->pendingRequests[$id];
-
         unset($this->pendingRequests[$id]);
         unset($this->pendingRequestOidLists[$id]);
-        Loop::cancelTimer($this->timers[$id]);
+        EventLoop::cancel($this->timers[$id]);
         unset($this->timers[$id]);
         EventLoop::queue(function () use ($deferred, $error) {
-            $deferred->reject($error);
+            $deferred->error($error);
         });
     }
 
@@ -332,7 +316,7 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
         return array_keys($this->pendingRequests);
     }
 
-    protected function handleData(string $data, SocketAddress $peer, DatagramSocket $socket): void
+    protected function handleData(string $data, InternetAddress $peer): void
     {
         // TODO: Logger::debug("Got message from $peer");
         try {
@@ -355,15 +339,15 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
             $deferred = $this->pendingRequests[$requestId];
             $oidList = $this->pendingRequestOidLists[$requestId];
             $this->clearPendingRequest($requestId);
-            $this->oidsReceived += count($pdu->varBinds);
-            $this->responsesReceived++;
+            $this->stats->oidsReceived += count($pdu->varBinds);
+            $this->stats->responsesReceived++;
             // We're skipping this noSuchName, as otherwise PollSysInfo would fail on some devices
             if ($pdu->isError() && $pdu->getErrorStatus() !== ErrorStatus::NO_SUCH_NAME) {
                 $out = '';
                 foreach ($message->getPdu()->varBinds as $varBind) {
                     $out .= $varBind->oid . ': ' . $varBind->value->getReadableValue() . "\n";
                 }
-                $deferred->reject(new Exception(sprintf(
+                $deferred->error(new Exception(sprintf(
                     "errorStatus: %d, errorIndex: %d\n",
                     $pdu->getErrorStatus(),
                     $pdu->getErrorIndex()
@@ -384,7 +368,7 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
                         $result[$missing] = DataTypeContextSpecific::noSuchObject();
                     }
                 }
-                $deferred->resolve($result);
+                $deferred->complete($result);
             }
         } else {
             $this->logger->error(
@@ -393,36 +377,33 @@ class SnmpSocket implements EventEmitterInterface, LoggerAwareInterface, Request
         }
     }
 
-    protected function socket(): DatagramSocket
+    protected function socket(): ResourceUdpSocket
     {
         if ($this->socket === null) {
-            $this->socket = UdpSocketFactory::prepareUdpSocket($this->socketAddress);
-            $this->registerUdpSocketHandlers();
-            assert($this->socket instanceof DatagramSocket); // this should not be necessary, but phpstan complains
+            $this->socket = bindUdpSocket($this->socketAddress);
+            EventLoop::queue($this->keepReadingFromSocket(...));
         }
 
         return $this->socket;
     }
 
-    protected function registerUdpSocketHandlers(): void
+    protected function keepReadingFromSocket(): void
     {
         if ($this->socket === null) {
             throw new RuntimeException('Cannot register socket handlers w/o socket');
         }
-        $socket = $this->socket;
-        $socket->on('message', function ($data, $peer, DatagramSocket $socket) {
-            $this->handleData($data, SocketAddress::parse($peer), $socket);
-        });
-        $socket->on('error', function (Throwable $error) {
+        try {
+            while ([$address, $data] = $this->socket->receive()) {
+                $this->handleData($data, $address);
+            }
+            $this->socket = null;
+            $this->rejectAllPendingRequests(new Exception('Socket has been closed'));
+        } catch (Throwable $error) {
             $this->rejectAllPendingRequests($error);
             if ($this->socket !== null) {
                 $this->socket->close();
                 $this->socket = null;
             }
-        });
-        $socket->on('close', function () {
-            $this->socket = null;
-            $this->rejectAllPendingRequests(new Exception('Socket has been closed'));
-        });
+        }
     }
 }

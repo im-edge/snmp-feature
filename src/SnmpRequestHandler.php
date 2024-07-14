@@ -3,25 +3,12 @@
 namespace IMEdge\SnmpFeature;
 
 use IMEdge\Snmp\SocketAddress;
-use React\Promise\PromiseInterface;
 
 use function hrtime;
 
 final class SnmpRequestHandler
 {
-    public static function appendResultHandlers(
-        PromiseInterface $promise,
-        SocketAddress $source
-    ): PromiseInterface {
-        $start = hrtime(true);
-        return $promise->then(function ($result) use ($start, $source) {
-            return self::handleRemoteResult($result, $start, $source);
-        }, function ($reason) use ($start, $source) {
-            return self::handleRemoteFailure($reason, $start, $source);
-        });
-    }
-
-    protected static function handleRemoteResult($result, float $startTime, SocketAddress $source): SnmpResponse
+    public static function handleRemoteResult($result, float $startTime, SocketAddress $source): SnmpResponse
     {
         return new SnmpResponse(
             success:  true,
@@ -31,7 +18,7 @@ final class SnmpRequestHandler
         );
     }
 
-    protected static function handleRemoteFailure($reason, float $startTime, SocketAddress $source): SnmpResponse
+    public static function handleRemoteFailure($reason, float $startTime, SocketAddress $source): SnmpResponse
     {
         $duration = hrtime(true) - $startTime;
         if ($reason instanceof \Throwable) {
