@@ -60,7 +60,7 @@ class ScenarioLoader
                 $arg = $attribute->getArguments();
                 $name = $arg['name'] ?? $arg[0];
                 $implementations[$name] = $class;
-                $this->logger->debug("Scenario loaded: $name");
+                // $this->logger->debug("Scenario loaded: $name");
             }
         }
 
