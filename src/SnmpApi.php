@@ -226,8 +226,8 @@ class SnmpApi
         UuidInterface $credentialUuid, // differs from @param!!
         SocketAddress $address,
         string $oid,
-        ?int $limit,
-        ?string $nextOid
+        ?int $limit = null,
+        ?string $nextOid = null
     ): SnmpResponse {
         $community = $this->runner->credentials->requireCredential($credentialUuid)->securityName;
         $start = hrtime(true);
