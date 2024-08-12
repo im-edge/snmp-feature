@@ -145,7 +145,7 @@ class SnmpRunner
                 // TODO: emit db update -> state
                 // TODO: $result->target->error = null;
 
-                if (! ($this->startedRecently && $formerState === TargetState::PENDING)) {
+                if (! ($this->startedRecently && ($formerState === TargetState::PENDING))) {
                     $this->logger->notice(sprintf(
                         'Target was %s, and is now reachable: %s (%s)',
                         $formerState->value,
