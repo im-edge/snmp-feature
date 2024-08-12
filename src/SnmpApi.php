@@ -5,17 +5,6 @@ namespace IMEdge\SnmpFeature;
 use IMEdge\Snmp\SocketAddress;
 use IMEdge\SnmpFeature\Discovery\IpListScanner;
 use IMEdge\SnmpFeature\NextGen\PeriodicScenarioRegistry;
-use IMEdge\SnmpFeature\Scenario\PollEntity;
-use IMEdge\SnmpFeature\Scenario\PollEntityIfMap;
-use IMEdge\SnmpFeature\Scenario\PollIcomBsTsConfig;
-use IMEdge\SnmpFeature\Scenario\PollIcomBsTsStatus;
-use IMEdge\SnmpFeature\Scenario\PollIcomSensors;
-use IMEdge\SnmpFeature\Scenario\PollInterfaceConfig;
-use IMEdge\SnmpFeature\Scenario\PollInterfacePackets;
-use IMEdge\SnmpFeature\Scenario\PollInterfaceStatus;
-use IMEdge\SnmpFeature\Scenario\PollInterfaceTraffic;
-use IMEdge\SnmpFeature\Scenario\PollSensors;
-use IMEdge\SnmpFeature\Scenario\PollSysInfo;
 use IMEdge\SnmpFeature\Scenario\ScenarioLoader;
 use IMEdge\SnmpFeature\SnmpScenario\KnownTargetsHealth;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
@@ -208,7 +197,6 @@ class SnmpApi
         } catch (\Exception $e) {
             return SnmpRequestHandler::handleRemoteFailure($e, $start, $address);
         }
-
     }
 
     #[ApiMethod]
