@@ -4,6 +4,7 @@ namespace IMEdge\SnmpFeature;
 
 use IMEdge\Snmp\SocketAddress;
 use IMEdge\SnmpFeature\Discovery\IpListScanner;
+use IMEdge\SnmpFeature\NextGen\PeriodicScenarioRegistry;
 use IMEdge\SnmpFeature\Scenario\PollEntity;
 use IMEdge\SnmpFeature\Scenario\PollEntityIfMap;
 use IMEdge\SnmpFeature\Scenario\PollIcomBsTsConfig;
@@ -184,20 +185,9 @@ class SnmpApi
                 $health->setCurrentResult($newTarget->identifier, TargetState::PENDING);
             }
         }
+        $reg = new PeriodicScenarioRegistry();
         // $this->runner->launchPeriodicHealthChecks();
-        $this->runner->launchPeriodicScenarios([
-            PollSysInfo::class,
-            PollEntity::class,
-            PollSensors::class,
-            PollEntityIfMap::class,
-            PollInterfaceConfig::class,
-            PollInterfaceStatus::class,
-            PollInterfaceTraffic::class,
-            PollInterfacePackets::class,
-            //PollIcomBsTsStatus::class,
-            //PollIcomBsTsConfig::class,
-            //PollIcomSensors::class,
-        ]);
+        $this->runner->launchPeriodicScenarios($reg->listScenarios());
         return true;
     }
 
