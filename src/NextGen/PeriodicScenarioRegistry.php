@@ -5,6 +5,7 @@ namespace IMEdge\SnmpFeature\NextGen;
 use IMEdge\SnmpFeature\Scenario\PollEntity;
 use IMEdge\SnmpFeature\Scenario\PollEntityIfMap;
 use IMEdge\SnmpFeature\Scenario\PollInterfaceConfig;
+use IMEdge\SnmpFeature\Scenario\PollInterfaceErrors;
 use IMEdge\SnmpFeature\Scenario\PollInterfacePackets;
 use IMEdge\SnmpFeature\Scenario\PollInterfaceStatus;
 use IMEdge\SnmpFeature\Scenario\PollInterfaceTraffic;
@@ -27,6 +28,7 @@ class PeriodicScenarioRegistry
             PollInterfaceStatus::class,
             PollInterfaceTraffic::class,
             PollInterfacePackets::class,
+            PollInterfaceErrors::class,
             //PollIcomBsTsStatus::class,
             //PollIcomBsTsConfig::class,
             //PollIcomSensors::class,
