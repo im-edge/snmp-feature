@@ -3,14 +3,13 @@
 namespace IMEdge\SnmpFeature\NextGen;
 
 use IMEdge\Inventory\NodeIdentifier;
+use IMEdge\Metrics\MetricsEvent;
 use IMEdge\Node\Events;
 use IMEdge\Node\Services;
 use IMEdge\RedisTables\RedisTables;
 use IMEdge\SnmpFeature\DataStructure\DbTable;
-use IMEdge\SnmpFeature\RequestedOidList;
 use IMEdge\SnmpFeature\Result;
 use IMEdge\SnmpFeature\Scenario\PollingTask;
-use IMEdge\SnmpFeature\Scenario\PollSysInfo;
 use IMEdge\SnmpFeature\Scenario\ScenarioResultHandler;
 use IMEdge\SnmpFeature\SnmpScenario\KnownTargetsHealth;
 use IMEdge\SnmpFeature\SnmpScenario\TargetState;
@@ -66,127 +65,111 @@ class DedicatedResultHandler
         // $oidList = new RequestedOidList($resultHandler->getScenarioOids());
     }
 
-    public function processResult(string $scenarioName, Result $result): void
+    public function processResult(Result $result): void
+    {
+        if ($result->succeeded()) {
+            $this->processSuccess($result);
+        } else {
+            $this->processFailure($result);
+        }
+    }
+
+    protected function processSuccess(Result $result): void
     {
         $target = $result->target;
-        $isHealthCheck = $scenarioName === self::HEALTH_CHECK_SCENARIO;
-        if ($result->succeeded()) {
-            /*
-            $this->logger->debug(sprintf(
-                'Got %s scenario result from %s',
-                $scenario->name,
-                $target->address->ip
-            ));
-            */
-            // $target points to our target object, it's state is still the former one!
-            if ($target->state !== TargetState::REACHABLE && $isHealthCheck) {
-                $formerState = $target->state;
-                $target->state = TargetState::REACHABLE;
-                // TODO: emit db update -> state
-                // TODO: $result->target->error = null;
+        $state = $target->state;
+        $targetId = $target->identifier;
+        $name = $result->scenarioName;
+        $isHealthCheck = $name === self::HEALTH_CHECK_SCENARIO;
+        // $target points to our target object, it's state is still the former one!
+        if ($state !== TargetState::REACHABLE && $isHealthCheck) {
+            $formerState = $target->state;
+            $target->state = TargetState::REACHABLE;
+            // TODO: emit db update -> state
+            // TODO: $result->target->error = null;
 
-                if ($formerState !== TargetState::PENDING) {
-                    $this->logger->notice(sprintf(
-                        'Target was %s, and is now reachable: %s (%s)',
-                        $formerState->value,
-                        $target->address->ip,
-                        $scenarioName
-                    ));
-                }
-                $this->redisTables->setTableEntry('snmp_target_health', $target->identifier, [
-                    'uuid'
-                ], [
-                    'uuid'  => $target->identifier,
-                    'state' => TargetState::REACHABLE->value,
-                ]);
-                // TODO: emit db update -> state
-                // TODO: $result->target->error = $result->error;
-            }
-
-            $deviceUuid = RamseyUuid::fromString($result->target->identifier);
-            $resultHandler = $this->scenarioResultHandlers[$scenarioName];
-            if ($this->scenarioRequestType[$scenarioName] === 'get') {
-                // $this->logger->notice('Processing GET');
-// $scenario->processResult($result->target, $result->result); -> this does nothing
-                try {
-                    $this->sendResultToRedis(
-                        $resultHandler,
-                        $resultHandler->getResultObjectInstance(
-                            $this->nodeIdentifier->uuid,
-                            $deviceUuid,
-                            $result->result
-                        )
-                    );
-                } catch (Throwable $e) {
-                    $this->logger->error('GET Failed: ' . $e->getMessage());
-                }
-            } else {
-                // walk
-                // $this->logger->notice('Result: ' . var_export($result->result, 1));
-                try {
-                    $instances = $resultHandler->getResultObjectInstances(
-                        $this->nodeIdentifier->uuid,
-                        $deviceUuid,
-                        $result->result
-                    );
-                } catch (Throwable $e) {
-                    $this->logger->error($e->getMessage());
-                    return;
-                }
-                // $this->logger->notice('Instances: ' . var_export($instances, 1));
-                if ($dbTable = $resultHandler->getDbTable()) {
-                    $tables = [];
-                    try {
-                        foreach ($instances as $instance) {
-                            $tables[
-                            $resultHandler->getDbUpdateKey($instance)
-                            ] = $resultHandler->getInstanceDbProperties($instance);
-                        }
-                        $this->sendTableEntries($dbTable, $deviceUuid, array_keys($dbTable->keyProperties), $tables);
-                    } catch (Throwable $e) {
-                        $this->logger->error(
-                            'Sending table updates failed: ' . $e->getMessage() . $e->getFile() . $e->getLine()
-                        );
-                    }
-                } else {
-                    // $this->logger->notice('Scenario ' . $scenario->name . ' has no DB table');
-                }
-                try {
-                    if ($measurements = $resultHandler->prepareMeasurements($deviceUuid, $instances)) {
-                        // $this->logger->notice('Measurements: ' . JsonString::encode($measurements));
-                        $this->events->emit('measurements', [$measurements]);
-                    }
-                } catch (Throwable $e) {
-                    $this->logger->notice('Measurements failed: ' . $e->getMessage());
-                }
-            }
-        } else {
-            if (!$isHealthCheck) {
+            if ($formerState !== TargetState::PENDING) {
                 $this->logger->notice(sprintf(
-                    'Scenario failed: %s (%s)',
-                    $target->identifier,
-                    $scenarioName
+                    'Target was %s, and is now reachable: %s (%s)',
+                    $formerState->value,
+                    $target->address->ip,
+                    $name
                 ));
             }
-            if ($result->target->state !== TargetState::FAILING && $isHealthCheck) {
-                $this->logger->notice(sprintf(
-                    'Scenario failed, setting failing: %s (%s)',
-                    $target->identifier,
-                    $scenarioName
-                ));
-
-                $result->target->state = TargetState::FAILING;
-                $this->redisTables->setTableEntry('snmp_target_health', $result->target->identifier, [
-                    'uuid'
-                ], [
-                    'uuid'  => $result->target->identifier,
-                    'state' => TargetState::FAILING->value,
-                ]);
-            }
+            $this->redisTables->setTableEntry('snmp_target_health', $targetId, ['uuid'], [
+                'uuid'  => $targetId,
+                'state' => TargetState::REACHABLE->value,
+            ]);
+            // TODO: $result->target->error = $result->error;
+            // TODO: set failing on the third attempt only
         }
 
-        if ($isHealthCheck) {
-            $this->health->setCurrentResult($result->target->identifier, $result->target->state);
+        $deviceUuid = RamseyUuid::fromString($targetId);
+        $resultHandler = $this->scenarioResultHandlers[$name];
+        if ($this->scenarioRequestType[$name] === 'get') {
+            try {
+                $this->sendResultToRedis($resultHandler, $resultHandler->getResultObjectInstance(
+                    $this->nodeIdentifier->uuid,
+                    $deviceUuid,
+                    $result->result
+                ));
+            } catch (Throwable $e) {
+                $this->logger->error('GET Failed: ' . $e->getMessage());
+            }
+        } else {
+            try {
+                $instances = $resultHandler->getResultObjectInstances(
+                    $this->nodeIdentifier->uuid,
+                    $deviceUuid,
+                    $result->result
+                );
+            } catch (Throwable $e) {
+                $this->logger->error($e->getMessage());
+                return;
+            }
+            if ($dbTable = $resultHandler->getDbTable()) {
+                $tables = [];
+                try {
+                    foreach ($instances as $instance) {
+                        $tables[
+                        $resultHandler->getDbUpdateKey($instance)
+                        ] = $resultHandler->getInstanceDbProperties($instance);
+                    }
+                    $this->sendTableEntries($dbTable, $deviceUuid, array_keys($dbTable->keyProperties), $tables);
+                } catch (Throwable $e) {
+                    $this->logger->error(
+                        'Sending table updates failed: ' . $e->getMessage() . $e->getFile() . $e->getLine()
+                    );
+                }
+            }
+            try {
+                if ($measurements = $resultHandler->prepareMeasurements($deviceUuid, $instances)) {
+                    $this->events->emit(MetricsEvent::ON_MEASUREMENTS, [$measurements]);
+                }
+            } catch (Throwable $e) {
+                $this->logger->notice('Measurements failed: ' . $e->getMessage());
+            }
+        }
+    }
+
+    protected function processFailure(Result $result): void
+    {
+        $targetId = $result->target->identifier;
+        $state = $result->target->state;
+        $name = $result->scenarioName;
+        $isHealthCheck = $name === self::HEALTH_CHECK_SCENARIO;
+        if (!$isHealthCheck) {
+            $this->logger->notice("Scenario failed: $targetId ($name)");
+            return;
+        }
+        $this->health->setCurrentResult($targetId, $state);
+        if ($state !== TargetState::FAILING) {
+            $this->logger->notice("Scenario failed, setting failing: $targetId ($name)");
+            $result->target->state = TargetState::FAILING;
+            $this->redisTables->setTableEntry('snmp_target_health', $targetId, ['uuid'], [
+                'uuid' => $targetId,
+                'state' => TargetState::FAILING->value,
+            ]);
         }
     }
 
@@ -206,7 +189,6 @@ class DedicatedResultHandler
                 $keyProperties,
                 $tables
             );
-            // $this->logger->notice("Redis said: $result");
         } catch (\Exception $e) {
             $this->logger->error('Setting Redis table failed: ' . $e->getMessage());
         }
@@ -215,10 +197,8 @@ class DedicatedResultHandler
     protected function sendResultToRedis(ScenarioResultHandler $handler, object $instance): void
     {
         if ($update = $handler->prepareDbUpdate($instance)) {
-            // $this->logger->notice('Sending to Redis: ' . JsonString::encode($update));
             try {
                 $result = $this->redisTables->setTableEntry(...$update);
-                // $this->logger->notice("Redis said: $result");
             } catch (\Exception $e) {
                 $this->logger->error('Updating Redis table failed: ' . $e->getMessage());
             }

@@ -47,12 +47,4 @@ class PeriodicScenario
         }
         $this->oidList = new RequestedOidList($this->resultHandler->getScenarioOids());
     }
-
-    public function processResult(SnmpTarget $target, $result)
-    {
-    }
-
-    public function processFailure(SnmpTarget $target, Throwable $error)
-    {
-    }
 }

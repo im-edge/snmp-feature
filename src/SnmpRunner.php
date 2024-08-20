@@ -121,11 +121,10 @@ class SnmpRunner
         $runner->on(PeriodicScenarioRunner::ON_MEASUREMENT, function (Measurement $measurement) {
             $this->events->emit('measurements', [[$measurement]]);
         });
-        $scenarioName = $scenario->name;
-        $runner->on(PeriodicScenarioRunner::ON_RESULT, function (Result $result) use ($scenarioName) {
+        $runner->on(PeriodicScenarioRunner::ON_RESULT, function (Result $result) {
             // $this->logger->notice($scenario->name . ' shipped a result');
             try {
-                $this->resultHandler->processResult($scenarioName, $result);
+                $this->resultHandler->processResult($result);
             } catch (Throwable $e) {
                 $this->logger->error('Processing result failed: ' . $e->getMessage());
             }

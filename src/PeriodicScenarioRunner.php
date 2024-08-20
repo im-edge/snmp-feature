@@ -5,7 +5,6 @@ namespace IMEdge\SnmpFeature;
 use Amp\Cancellation;
 use Evenement\EventEmitterInterface;
 use Evenement\EventEmitterTrait;
-use Exception;
 use IMEdge\Metrics\Ci;
 use IMEdge\Metrics\Measurement;
 use IMEdge\Metrics\Metric;
@@ -235,55 +234,28 @@ class PeriodicScenarioRunner implements EventEmitterInterface
     protected function sendRequest(PeriodicScenarioSingleRequest $request): void
     {
         // TODO: $this->runningCancellations[$idx] =
+        $name = $this->scenario->name;
+        $target = $request->target;
         try {
-            $this->processResult($this->reallySendRequest($request), $request);
+            $result = $this->reallySendRequest($request);
+            $this->emit(self::ON_RESULT, [
+                new Result($name, $request->requestType, $target, $result)
+            ]);
         } catch (Throwable $reason) {
-            $this->processFailure($reason, $request);
-        }
-        $this->forget($request);
-    }
-
-    protected function processResult($result, PeriodicScenarioSingleRequest $request): void
-    {
-        // $this->logger->notice('RESULT IMMEDIATE: ' . var_export($result, 1));
-        try {
-            $this->emit(self::ON_RESULT, [new Result($request->requestType, $request->target, $result)]);
-            $this->scenario->processResult($request->target, $result);
-        } catch (Throwable $e) {
-            $this->logger->error(sprintf(
-                'Processing Scenario result failed for %s (%s): %s',
-                $request->target->address,
-                $this->scenario->name,
-                $e->getMessage()
-            ));
-        }
-    }
-
-    protected function processFailure(Throwable $reason, PeriodicScenarioSingleRequest $request): void
-    {
-        $address = $request->target->address;
-        try {
-            if ($this->scenario->scenarioClass !== PollSysInfo::class) {
+            try {
+                $this->emit(self::ON_RESULT, [
+                    new Result($name, $request->requestType, $target, null, $reason->getMessage())
+                ]);
+            } catch (Throwable $e) {
                 $this->logger->error(sprintf(
-                    'Scenario failed for %s (%s): %s',
-                    $address,
-                    $this->scenario->name,
-                    $reason->getMessage()
+                    'Processing Scenario failure failed for %s (%s): %s',
+                    $target->address,
+                    $name,
+                    $e->getMessage()
                 ));
             }
-            $this->emit(
-                self::ON_RESULT,
-                [new Result($request->requestType, $request->target, null, $reason->getMessage())]
-            );
-            $this->scenario->processFailure($request->target, $reason);
-        } catch (Throwable $e) {
-            $this->logger->error(sprintf(
-                'Error on Scenario result handling for %s (%s): %s',
-                $address,
-                $this->scenario->name,
-                $e->getMessage()
-            ));
         }
+        $this->forget($request);
     }
 
     protected function forget(PeriodicScenarioSingleRequest $request): void

@@ -154,18 +154,6 @@ class ScenarioResultHandler
         return $result;
     }
 
-    public function getTableEntries(UuidInterface $deviceUuid, array $instances): array
-    {
-        $tables = [];
-        if ($dbTable = $this->getDbTable()) {
-            foreach ($instances as $instance) {
-                $tables[$this->getDbUpdateKey($instance)] = $this->getInstanceDbProperties($instance);
-            }
-            $this->sendTableEntries($dbTable, $deviceUuid, array_keys($dbTable->keyProperties), $tables);
-        }
-        return $tables;
-    }
-
     /**
      * @param $instance
      * @return Metric[]
