@@ -3,6 +3,7 @@
 namespace IMEdge\SnmpFeature\Scenario;
 
 use IMEdge\SnmpFeature\DataMangler\DivideInteger;
+use IMEdge\SnmpFeature\DataMangler\ExactStringLengthOrNull;
 use IMEdge\SnmpFeature\DataMangler\MultiplyInteger;
 use IMEdge\SnmpFeature\DataStructure\DataNodeIdentifier;
 use IMEdge\SnmpFeature\DataStructure\DbColumn;
@@ -69,6 +70,7 @@ class PollInterfaceConfig
 
         #[Oid('1.3.6.1.2.1.2.2.1.6')]
         #[DbColumn('physical_address')] // + physical_address_plain + oui
+        #[ExactStringLengthOrNull(6)]
         public readonly ?string $physicalAddress = null,
 
         // false(2) if this interface only accepts packets/frames that are addressed to this station
