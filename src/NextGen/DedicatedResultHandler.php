@@ -61,7 +61,8 @@ class DedicatedResultHandler
         $this->scenarioReflections[$name] = $reflection;
         $resultHandler = new ScenarioResultHandler($name, $reflection, $this->logger);
         $this->scenarioResultHandlers[$name] = $resultHandler;
-        $this->scenarioRequestType[$name] = $resultHandler->needsWalk() ? 'walk' : 'get'; // Unused here, it's for the scheduler
+        // Unused here, it's for the scheduler:
+        $this->scenarioRequestType[$name] = $resultHandler->needsWalk() ? 'walk' : 'get';
         // $oidList = new RequestedOidList($resultHandler->getScenarioOids());
     }
 
