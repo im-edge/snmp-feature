@@ -16,7 +16,6 @@
     "ext-json": "*",
     "ext-mbstring": "*",
     "ext-posix": "*",
-    "gipfl/data-type": ">=0.3",
     "gipfl/log": ">=0.7",
     "imedge/snmp": "^0.2.0",
     "ramsey/uuid": "^4"
