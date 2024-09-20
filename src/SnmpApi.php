@@ -218,6 +218,5 @@ class SnmpApi
         } catch (\Exception $e) {
             return SnmpRequestHandler::handleRemoteFailure($e, $start, $address);
         }
-
     }
 }
