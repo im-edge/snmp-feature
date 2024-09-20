@@ -2,7 +2,7 @@
 
 namespace IMEdge\SnmpFeature\Scenario;
 
-use gipfl\Json\JsonString;
+use IMEdge\Json\JsonString;
 use IMEdge\Metrics\Ci;
 use IMEdge\Metrics\Measurement;
 use IMEdge\Metrics\Metric;

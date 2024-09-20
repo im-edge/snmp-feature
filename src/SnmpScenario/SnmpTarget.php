@@ -2,7 +2,7 @@
 
 namespace IMEdge\SnmpFeature\SnmpScenario;
 
-use gipfl\Json\JsonSerialization;
+use IMEdge\Json\JsonSerialization;
 use IMEdge\Snmp\SocketAddress;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;

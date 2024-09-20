@@ -17,7 +17,9 @@
     "ext-mbstring": "*",
     "ext-posix": "*",
     "gipfl/log": ">=0.7",
-    "imedge/snmp": "^0.2.0",
+    "imedge/snmp": ">=0.3"
+  },
+  "require-dev": {
     "ramsey/uuid": "^4"
   }
 }

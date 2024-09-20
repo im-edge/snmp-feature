@@ -3,7 +3,7 @@
 namespace IMEdge\SnmpFeature;
 
 use Amp\Redis\RedisClient;
-use gipfl\Json\JsonString;
+use IMEdge\Json\JsonString;
 use IMEdge\Inventory\NodeIdentifier;
 use IMEdge\Metrics\Measurement;
 use IMEdge\Node\Events;

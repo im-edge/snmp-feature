@@ -2,7 +2,7 @@
 
 namespace IMEdge\SnmpFeature;
 
-use gipfl\Json\JsonSerialization;
+use IMEdge\Json\JsonSerialization;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 
