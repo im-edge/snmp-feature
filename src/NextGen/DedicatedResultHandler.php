@@ -82,8 +82,9 @@ class DedicatedResultHandler
         $targetId = $target->identifier;
         $name = $result->scenarioName;
         $isHealthCheck = $name === self::HEALTH_CHECK_SCENARIO;
+        $this->health->setCurrentResult($targetId, TargetState::REACHABLE);
         // $target points to our target object, it's state is still the former one!
-        if ($state !== TargetState::REACHABLE && $isHealthCheck) {
+        if (($state !== TargetState::REACHABLE) && $isHealthCheck) {
             $formerState = $target->state;
             $target->state = TargetState::REACHABLE;
             // TODO: emit db update -> state
