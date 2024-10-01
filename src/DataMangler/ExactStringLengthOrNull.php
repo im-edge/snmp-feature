@@ -13,12 +13,16 @@ class ExactStringLengthOrNull implements DataManglerInterface
 
     public function transform(mixed $string): mixed
     {
-        if ($string === null) {
+        if (!is_string($string)) {
             return null;
         }
 
-        if (is_string($string) && strlen($string) === $this->stringLength) {
-            return $this->stringLength;
+        if (strlen($string) === $this->stringLength) {
+            return $string;
+        }
+
+        if (str_starts_with($string, '0x') && strlen(hex2bin(substr($string, 2))) === $this->stringLength) {
+            return $string;
         }
 
         return null;
