@@ -101,19 +101,19 @@ class SnmpWalk
         if (preg_match('/timeout/i', $e->getMessage())) {
             if ($this->timeoutCount < 3) {
                 $this->timeoutCount++;
-                $this->logger->notice(sprintf(
+                /* $this->logger->notice(sprintf(
                     'Walk for %s timed out %d time(s), trying again',
                     $this->target,
                     $this->timeoutCount
-                ));
+                )); */
                 EventLoop::queue($this->next(...));
                 return;
             } else {
-                $this->logger->notice(sprintf(
+                /* $this->logger->notice(sprintf(
                     'Walk for %s timed out %d time(s), giving up',
                     $this->target,
                     $this->timeoutCount
-                ));
+                )); */
                 $this->timeoutCount = 0;
             }
         }
