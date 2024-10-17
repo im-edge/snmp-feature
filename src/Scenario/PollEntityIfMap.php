@@ -2,6 +2,7 @@
 
 namespace IMEdge\SnmpFeature\Scenario;
 
+use IMEdge\SnmpFeature\DataMangler\LastOidOctetToInteger32;
 use IMEdge\SnmpFeature\DataStructure\DbColumn;
 use IMEdge\SnmpFeature\DataStructure\DbTable;
 use IMEdge\SnmpFeature\DataStructure\DeviceIdentifier;
@@ -55,8 +56,7 @@ class PollEntityIfMap
         public readonly int $entityIndex,
 
         #[SnmpTableIndexValue('entAliasLogicalIndexOrZero')]
-        #[DbColumn('if_index')]
-        public readonly int $ifIndex,
+        public readonly int $entAliasMappingIdentifier,
 
         /**
          * The value of this object identifies a particular conceptual
@@ -84,7 +84,9 @@ class PollEntityIfMap
         #[Oid('1.3.6.1.2.1.47.1.3.2.1.2')]
         // e.g. 1.3.6.1.2.1.2.2.1.1.10101 = ifIndex.10101
         // Modifier: strip base OID 1.3.6.1.2.1.2.2.1.1 (ifIndex), ignore others for now
-        public readonly string $entAliasMappingIdentifier,
+        #[LastOidOctetToInteger32]
+        #[DbColumn('if_index')]
+        public readonly string $ifIndex,
     ) {
     }
 }
