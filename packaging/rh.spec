@@ -19,7 +19,9 @@ Packager:       Thomas Gelf <thomas@gelf.net>
 Requires:       imedge-node
 
 %description
-IMEdge SNMP Feature
+This package provides SNMP capabilities for your IMEdge Node. It comes with a
+bunch of predefined polling scenarios, generic API methods for your interactive
+components and an advanced and autonomous scheduling and polling logic.
 
 %prep
 
