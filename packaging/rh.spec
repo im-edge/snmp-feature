@@ -5,13 +5,13 @@
 %define bindir          %{_bindir}
 %undefine __brp_mangle_shebangs
 
-Name:           imedge-snmp-feature
+Name:           imedge-feature-snmp
 Version:        %{git_version}
 Release:        %{revision}%{?dist}
 Summary:        IMEdge SNMP Feature
 Group:          Applications/System
 License:        MIT
-URL:            https://github.com/im-edge
+URL:            https://github.com/im-edge/snmp-feature
 Source0:        https://github.com/im-edge/snmp-feature/archive/%{git_hash}.tar.gz
 BuildArch:      noarch
 BuildRoot:      %{_tmppath}/%{name}-%{git_version}-%{release}
