@@ -4,6 +4,7 @@ namespace IMEdge\SnmpFeature\Scenario;
 
 use IMEdge\SnmpFeature\DataMangler\DivideInteger;
 use IMEdge\SnmpFeature\DataMangler\ExactStringLengthOrNull;
+use IMEdge\SnmpFeature\DataMangler\MangleToUtf8;
 use IMEdge\SnmpFeature\DataMangler\MultiplyInteger;
 use IMEdge\SnmpFeature\DataStructure\DataNodeIdentifier;
 use IMEdge\SnmpFeature\DataStructure\DbColumn;
@@ -47,14 +48,17 @@ class PollInterfaceConfig
         public readonly ?string $ifType = null, // TODO: data?
 
         #[Oid('1.3.6.1.2.1.31.1.1.1.1')]
+        #[MangleToUtf8]
         #[DbColumn('if_name')]
         public readonly ?string $ifName = null,
 
         #[Oid('1.3.6.1.2.1.31.1.1.1.18')]
+        #[MangleToUtf8]
         #[DbColumn('if_alias')]
         public readonly ?string $ifAlias = null,
 
         #[Oid('1.3.6.1.2.1.2.2.1.2')]
+        #[MangleToUtf8]
         #[DbColumn('if_description')]
         public readonly ?string $ifDescr = null,
 
