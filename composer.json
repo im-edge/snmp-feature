@@ -20,9 +20,12 @@
     "ext-gmp": "*",
     "ext-json": "*",
     "ext-mbstring": "*",
+    "ext-pcntl": "*",
     "ext-posix": "*",
-    "imedge/node-provided-libs": "^0.9.0",
-    "imedge/snmp": ">=0.3"
+    "ext-redis": "*",
+    "ext-sockets": "*",
+    "imedge/node-provided-libs": "^0.11.0",
+    "imedge/snmp": ">=0.4"
   },
   "require-dev": {
     "ramsey/uuid": "^4",
