@@ -2,8 +2,9 @@
 
 namespace IMEdge\SnmpFeature;
 
+use IMEdge\Config\Settings;
+use IMEdge\IpListGenerator\IpListGenerator;
 use IMEdge\Snmp\SocketAddress;
-use IMEdge\SnmpFeature\Discovery\IpListScanner;
 use IMEdge\SnmpFeature\NextGen\PeriodicScenarioRegistry;
 use IMEdge\SnmpFeature\Scenario\ScenarioLoader;
 use IMEdge\SnmpFeature\SnmpScenario\KnownTargetsHealth;
@@ -141,12 +142,6 @@ class SnmpApi
     }
 
     #[ApiMethod]
-    public function scanIpList(array $ips, SnmpCredential $credential): array
-    {
-        return IpListScanner::scan($ips, $credential->securityName, $this->logger);
-    }
-
-    #[ApiMethod]
     public function setCredentials(SnmpCredentials $credentials): bool
     {
         foreach ($credentials->credentials as $credential) {
@@ -218,5 +213,64 @@ class SnmpApi
         } catch (\Exception $e) {
             return SnmpRequestHandler::handleRemoteFailure($e, $start, $address);
         }
+    }
+
+    /**
+     * @param class-string<IpListGenerator> $generatorClass
+     */
+    #[ApiMethod]
+    public function scanRanges(UuidInterface $credential, string $generatorClass, Settings $settings): int
+    {
+        $credential = $this->runner->credentials->requireCredential($credential);
+
+        $sender = $this->runner->discoverySender;
+        $receiver = $this->runner->discoveryReceiver;
+        if ($sender === null) {
+            throw new RuntimeException('SNMP Discovery Sender is not ready');
+        }
+        if ($receiver === null) {
+            throw new RuntimeException('SNMP Discovery Receiver is not ready');
+        }
+
+        $ipcSocket = $sender->jsonRpc->request('snmpDiscoverySender.getIpcSocket');
+        $receiver->jsonRpc->request('snmpDiscoveryReceiver.passUdpSocket', [$ipcSocket]);
+
+        $key = $sender->jsonRpc->request('snmpDiscoverySender.enqueue', [
+            $credential,
+            $generatorClass,
+            $settings
+        ]);
+
+        return $key;
+    }
+
+    #[ApiMethod]
+    public function getDiscoveryJobs(): \stdClass
+    {
+        return $this->runner->discoverySender->jsonRpc->request('snmpDiscoverySender.getJobs');
+    }
+
+    #[ApiMethod]
+    public function getDiscoveryJobResults(int $jobId): \stdClass
+    {
+        return $this->runner->discoverySender->jsonRpc->request('snmpDiscoverySender.getResults', [
+            $jobId
+        ]);
+    }
+
+    #[ApiMethod]
+    public function deleteDiscoveryJobResults(int $jobId): bool
+    {
+        return $this->runner->discoverySender->jsonRpc->request('snmpDiscoverySender.deleteJob', [
+            $jobId
+        ]);
+    }
+
+    #[ApiMethod]
+    public function stopDiscoveryJob(int $jobId): bool
+    {
+        return $this->runner->discoverySender->jsonRpc->request('snmpDiscoverySender.stopJob', [
+            $jobId
+        ]);
     }
 }
