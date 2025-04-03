@@ -10,6 +10,7 @@ use IMEdge\Node\ImedgeWorker;
 use IMEdge\RpcApi\ApiMethod;
 use IMEdge\RpcApi\ApiNamespace;
 use Psr\Log\LoggerInterface;
+use Ramsey\Uuid\UuidInterface;
 use Revolt\EventLoop;
 
 use function Amp\Redis\createRedisClient;
@@ -28,6 +29,9 @@ class SnmpDiscoveryReceiver implements ImedgeWorker
     /** @var array<int, string> */
     protected array $handles = [];
 
+    /** @var array<int, UuidInterface> */
+    protected array $credentials = [];
+
     public function __construct(
         protected readonly Settings $settings,
         protected readonly NodeIdentifier $nodeIdentifier,
@@ -38,18 +42,19 @@ class SnmpDiscoveryReceiver implements ImedgeWorker
     }
 
     #[ApiMethod]
-    public function passUdpSocket(string $targetSocket): bool
+    public function passUdpSocket(string $targetSocket, UuidInterface $credentialUuid): bool
     {
         $socket = DiscoveryUdpSocket::create();
         $udpPort = DiscoveryUdpSocket::getResourceStreamPort($socket);
         $this->servers[$udpPort] = $socket;
+        $this->credentials[$udpPort] = $credentialUuid;
         $this->handles[$udpPort] = EventLoop::onReadable($socket, function () use ($udpPort) {
             $data = stream_socket_recvfrom($this->servers[$udpPort], self::MAX_UDP_PAYLOAD, STREAM_OOB, $address);
             $this->redis->execute(
                 'HSET',
                 self::REDIS_PREFIX . "$udpPort/candidates",
                 $address,
-                $data
+                '[' . $this->credentials[$udpPort]->getBytes() . ',' . $data . ']'
             );
             $this->redis->execute(
                 'XADD',
@@ -60,6 +65,8 @@ class SnmpDiscoveryReceiver implements ImedgeWorker
                 '*',
                 'peer',
                 $address,
+                'credential',
+                $this->credentials[$udpPort],
                 'response',
                 $data
             ); // gives: '1741188731539-0'
@@ -84,6 +91,7 @@ class SnmpDiscoveryReceiver implements ImedgeWorker
             stream_socket_shutdown($server, STREAM_SHUT_RDWR);
         }
         $this->servers = [];
+        $this->credentials = [];
         $this->logger->notice('Discovery Runner has been stopped');
     }
 

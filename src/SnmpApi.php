@@ -219,9 +219,9 @@ class SnmpApi
      * @param class-string<IpListGenerator> $generatorClass
      */
     #[ApiMethod]
-    public function scanRanges(UuidInterface $credential, string $generatorClass, Settings $settings): int
+    public function scanRanges(UuidInterface $credentialUuid, string $generatorClass, Settings $settings): int
     {
-        $credential = $this->runner->credentials->requireCredential($credential);
+        $credential = $this->runner->credentials->requireCredential($credentialUuid);
 
         $sender = $this->runner->discoverySender;
         $receiver = $this->runner->discoveryReceiver;
@@ -233,7 +233,7 @@ class SnmpApi
         }
 
         $ipcSocket = $sender->jsonRpc->request('snmpDiscoverySender.getIpcSocket');
-        $receiver->jsonRpc->request('snmpDiscoveryReceiver.passUdpSocket', [$ipcSocket]);
+        $receiver->jsonRpc->request('snmpDiscoveryReceiver.passUdpSocket', [$ipcSocket, $credentialUuid]);
 
         $key = $sender->jsonRpc->request('snmpDiscoverySender.enqueue', [
             $credential,

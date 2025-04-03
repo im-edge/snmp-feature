@@ -17,6 +17,7 @@ use IMEdge\Snmp\SnmpMessage;
 use IMEdge\SnmpFeature\SnmpCredential;
 use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
+use Ramsey\Uuid\Uuid;
 use Revolt\EventLoop;
 use RuntimeException;
 use Socket;
@@ -154,6 +155,12 @@ class SnmpDiscoverySender implements ImedgeWorker
         $result = [];
 
         foreach ($results as $target => $message) {
+            if (substr($message, 0, 1) === '[') {
+                $credential = Uuid::fromBytes(substr($message, 1, 16))->toString();
+                $message = substr($message, 18, -1);
+            } else {
+                $credential = null;
+            }
             $message = SnmpMessage::fromBinary($message);
             $varBinds = $message->getPdu()->varBinds;
             $sysName = 'no sysName';
@@ -170,7 +177,8 @@ class SnmpDiscoverySender implements ImedgeWorker
             }
             $result[$target] = [
                 'peer' => $target,
-                'label' => sprintf('%s: %s', $sysName, $sysDescr)
+                'label' => sprintf('%s: %s', $sysName, $sysDescr),
+                'credential' => $credential,
             ];
         }
 
