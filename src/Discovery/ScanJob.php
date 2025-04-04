@@ -103,6 +103,16 @@ class ScanJob implements JsonSerializable
         return $v2Message->toDER();
     }
 
+    public function hasBeenCompleted(): bool
+    {
+        return $this->status === ScanJobStatus::FINISHED;
+    }
+
+    public function hasBeenAborted(): bool
+    {
+        return $this->status === ScanJobStatus::FINISHED;
+    }
+
     public function stop(): void
     {
         if ($this->status === ScanJobStatus::RUNNING || $this->status === ScanJobStatus::PENDING) {
