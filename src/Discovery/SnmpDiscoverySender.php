@@ -130,6 +130,23 @@ class SnmpDiscoverySender implements ImedgeWorker
         }
     }
 
+    /**
+     * @return ?ScanJob
+     */
+    #[ApiMethod]
+    public function getJob(int $jobId): ?stdClass
+    {
+        $string = $this->redis->execute('HGET', self::REDIS_PREFIX . 'jobs', $jobId);
+        if ($string === null) {
+            return null;
+        }
+
+        $job = JsonString::decode($string);
+        $this->enrichJobInfoWithCandidates($job, $jobId);
+
+        return $job;
+    }
+
     #[ApiMethod]
     public function deleteJob(int $jobId): bool
     {
