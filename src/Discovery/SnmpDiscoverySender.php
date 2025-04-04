@@ -18,6 +18,7 @@ use IMEdge\SnmpFeature\SnmpCredential;
 use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
+use Ramsey\Uuid\UuidInterface;
 use Revolt\EventLoop;
 use RuntimeException;
 use Socket;
@@ -133,8 +134,7 @@ class SnmpDiscoverySender implements ImedgeWorker
     /**
      * @return ?ScanJob
      */
-    #[ApiMethod]
-    public function getJob(int $jobId): ?stdClass
+    protected function getJob(int $jobId): ?stdClass
     {
         $string = $this->redis->execute('HGET', self::REDIS_PREFIX . 'jobs', $jobId);
         if ($string === null) {
@@ -171,42 +171,89 @@ class SnmpDiscoverySender implements ImedgeWorker
         return false;
     }
 
+    /**
+     * @param string $message
+     * @return array<?UuidInterface, SnmpMessage>
+     */
+    protected static function splitCredentialAndMessage(string $message): array
+    {
+        if (substr($message, 0, 1) === '[') {
+            $credential = Uuid::fromBytes(substr($message, 1, 16))->toString();
+            $message = substr($message, 18, -1);
+        } else {
+            $credential = null;
+        }
+        $message = SnmpMessage::fromBinary($message);
+
+        return [$credential, $message];
+    }
+
+    protected static function getLabelForSnmpMessage(SnmpMessage $message)
+    {
+        $varBinds = $message->getPdu()->varBinds;
+        $sysName = 'no sysName';
+        $sysDescr = 'no sysDescr';
+        foreach ($varBinds as $varBind) {
+            switch ($varBind->oid) {
+                case '1.3.6.1.2.1.1.5.0':
+                    $sysName = $varBind->value->getReadableValue();
+                    break;
+                case '1.3.6.1.2.1.1.1.0':
+                    $sysDescr = $varBind->value->getReadableValue();
+                    break;
+            }
+        }
+
+        return sprintf('%s: %s', $sysName, $sysDescr);
+    }
+
     #[ApiMethod]
     public function getResults(int $jobId): stdClass
     {
-        $this->logger->notice('Getting results');
         $results = RedisResult::toArray($this->redis->execute('HGETALL', self::REDIS_PREFIX . "$jobId/candidates"));
         $result = [];
 
         foreach ($results as $target => $message) {
-            if (substr($message, 0, 1) === '[') {
-                $credential = Uuid::fromBytes(substr($message, 1, 16))->toString();
-                $message = substr($message, 18, -1);
-            } else {
-                $credential = null;
-            }
-            $message = SnmpMessage::fromBinary($message);
-            $varBinds = $message->getPdu()->varBinds;
-            $sysName = 'no sysName';
-            $sysDescr = 'no sysDescr';
-            foreach ($varBinds as $varBind) {
-                switch ($varBind->oid) {
-                    case '1.3.6.1.2.1.1.5.0':
-                        $sysName = $varBind->value->getReadableValue();
-                        break;
-                    case '1.3.6.1.2.1.1.1.0':
-                        $sysDescr = $varBind->value->getReadableValue();
-                        break;
-                }
-            }
+            [$credential, $message] = self::splitCredentialAndMessage($message);
+
             $result[$target] = [
-                'peer' => $target,
-                'label' => sprintf('%s: %s', $sysName, $sysDescr),
+                'label'      => self::getLabelForSnmpMessage($message),
+                'peer'       => $target,
                 'credential' => $credential,
             ];
         }
 
         return (object) $result;
+    }
+
+    #[ApiMethod]
+    public function streamResults(int $jobId, int $blockMs, string $offset = '0-0'): array
+    {
+        $stream = self::REDIS_PREFIX . "$jobId/progress";
+        // Hint: [0] = first stream, with [0] => stream Name, [1] => results
+        $streamResults = $this->redis->execute('XREAD', 'BLOCK', $blockMs, 'STREAMS', $stream, $offset)[0][1] ?? [];
+        $streamPos = $offset;
+        $results = [];
+        foreach ($streamResults as $streamResult) {
+            try {
+                $streamPos = $streamResult[0];
+                $properties = RedisResult::toHash($streamResult[1]);
+                $results[] = [
+                    'peer'        => $properties->peer,
+                    'label'       => self::getLabelForSnmpMessage(SnmpMessage::fromBinary($properties->response)),
+                    'credential'  => Uuid::fromString($properties->credential),
+                    'timestampMs' => explode('-', $streamPos, 2)[0],
+                ];
+            } catch (\Throwable $e) {
+                $this->logger->error($e->getMessage());
+            }
+        }
+
+        return [
+            'job'     => $this->getJob($jobId),
+            'offset'  => $streamPos,
+            'results' => $results,
+        ];
     }
 
     public function start(): void

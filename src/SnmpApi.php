@@ -17,6 +17,7 @@ use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use RuntimeException;
+use stdClass;
 
 #[ApiNamespace('snmp')]
 class SnmpApi
@@ -245,16 +246,26 @@ class SnmpApi
     }
 
     #[ApiMethod]
-    public function getDiscoveryJobs(): \stdClass
+    public function getDiscoveryJobs(): stdClass
     {
         return $this->runner->discoverySender->jsonRpc->request('snmpDiscoverySender.getJobs');
     }
 
     #[ApiMethod]
-    public function getDiscoveryJobResults(int $jobId): \stdClass
+    public function getDiscoveryJobResults(int $jobId): stdClass
     {
         return $this->runner->discoverySender->jsonRpc->request('snmpDiscoverySender.getResults', [
             $jobId
+        ]);
+    }
+
+    #[ApiMethod]
+    public function streamDiscoveryJobResults(int $jobId, int $blockMs, string $offset = '0-0'): stdClass
+    {
+        return $this->runner->discoverySender->jsonRpc->request('snmpDiscoverySender.streamResults', [
+            $jobId,
+            $blockMs,
+            $offset
         ]);
     }
 
