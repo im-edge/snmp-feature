@@ -117,10 +117,17 @@ class SnmpDiscoverySender implements ImedgeWorker
         );
         $jobs = ($this->jobs + $finished);
         foreach ($jobs as $port => $job) {
-            $job->results = (int) $this->redis->execute('HLEN', self::REDIS_PREFIX . "$port/candidates");
+            $this->enrichJobInfoWithCandidates($job, $port);
         }
 
         return (object) $jobs;
+    }
+
+    protected function enrichJobInfoWithCandidates($job, $jobId): void
+    {
+        if (($job->results ?? 0) === 0) {
+            $job->results = (int) $this->redis->execute('HLEN', self::REDIS_PREFIX . "$jobId/candidates");
+        }
     }
 
     #[ApiMethod]
