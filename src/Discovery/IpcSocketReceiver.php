@@ -41,7 +41,7 @@ class IpcSocketReceiver
             $deferred->error(new TimeoutException('Timeout, got no socket'));
         });
         $handle = EventLoop::onReadable($stream, function () use ($deferred, $timeout, $unixSocket) {
-            $this->logger->notice('Data ready for SocketReceiver');
+            // $this->logger->notice('Data ready for SocketReceiver');
             EventLoop::cancel($timeout);
             try {
                 $socket = $this->receiveRemoteSocket($unixSocket);
