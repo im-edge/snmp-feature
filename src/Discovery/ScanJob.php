@@ -17,6 +17,8 @@ use Sop\ASN1\Type\Primitive\OctetString;
 use Sop\ASN1\Type\Tagged\ImplicitlyTaggedType;
 use stdClass;
 
+use function Amp\delay;
+
 class ScanJob implements JsonSerializable
 {
     protected Integer $snmpVersion;
@@ -31,6 +33,8 @@ class ScanJob implements JsonSerializable
     protected ?int $stopHrTime = null;
     protected ScanJobStatus $status = ScanJobStatus::PENDING;
     protected ?Suspension $suspension = null;
+    /** @var \Socket|resource|null  */
+    protected $socket = null;
 
     public function __construct(
         protected SnmpCredential $credential,
@@ -49,6 +53,7 @@ class ScanJob implements JsonSerializable
      */
     public function run($socket): void
     {
+        $this->socket = $socket;
         $this->status = ScanJobStatus::RUNNING;
         $this->suspension = EventLoop::getSuspension();
         $this->startTimeMs = (int) floor(microtime(true) * 1000);
@@ -83,12 +88,26 @@ class ScanJob implements JsonSerializable
                 $this->suspension->suspend();
             }
         }
+        delay(10);
         if ($this->status === ScanJobStatus::RUNNING) {
             $this->status = ScanJobStatus::FINISHED;
         }
         $this->stopHrTime = hrtime(true);
         $this->suspension = null;
+        $this->closeSocket();
+
         $this->logger->notice('SNMP Job generator finished');
+    }
+
+    protected function closeSocket(): void
+    {
+        if ($this->socket) {
+            try {
+                socket_close($this->socket);
+            } catch (\Exception) {
+            }
+            $this->socket = null;
+        }
     }
 
     protected function nextPacket(): string
@@ -120,6 +139,7 @@ class ScanJob implements JsonSerializable
         }
         $this->stopHrTime = hrtime(true);
         $this->suspension = null;
+        $this->closeSocket();
     }
 
     protected static function nanoToMs(int $nanoSeconds): int
