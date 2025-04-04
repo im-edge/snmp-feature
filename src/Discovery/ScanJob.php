@@ -104,7 +104,8 @@ class ScanJob implements JsonSerializable
         if ($this->socket) {
             try {
                 socket_close($this->socket);
-            } catch (\Exception) {
+            } catch (\Exception $e) {
+                $this->logger->warning('Error when closing scan socket: ' . $e->getMessage());
             }
             $this->socket = null;
         }
@@ -135,11 +136,11 @@ class ScanJob implements JsonSerializable
     public function stop(): void
     {
         if ($this->status === ScanJobStatus::RUNNING || $this->status === ScanJobStatus::PENDING) {
+            $this->closeSocket();
             $this->status = ScanJobStatus::ABORTED;
         }
         $this->stopHrTime = hrtime(true);
         $this->suspension = null;
-        $this->closeSocket();
     }
 
     protected static function nanoToMs(int $nanoSeconds): int
