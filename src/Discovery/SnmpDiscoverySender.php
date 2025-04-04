@@ -96,7 +96,7 @@ class SnmpDiscoverySender implements ImedgeWorker
         EventLoop::queue(function () use ($job, $port) {
             $this->logger->notice("Starting Discovery job on port $port");
             $job->run($this->sockets[$port]);
-            $this->logger->notice("Done with Discovery job on port $port" . JsonString::encode($job));
+            $this->logger->notice("Done with Discovery job on port $port");
             $this->redis->execute('HSET', self::REDIS_PREFIX . 'jobs', $port, JsonString::encode($job));
             unset($this->jobs[$port]);
             unset($this->sockets[$port]);
