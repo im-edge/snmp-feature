@@ -79,7 +79,7 @@ class SnmpApi
         UuidInterface $credentialUuid,
         SocketAddress $address,
         string $name,
-        UuidInterface $deviceUuid = null,
+        ?UuidInterface $deviceUuid = null,
     ): SnmpResponse {
         $nodeUuid = Uuid::fromString('00000000-0000-0000-0000-000000000000');
 
