@@ -67,6 +67,8 @@ class PollInterfaceConfig
         public readonly ?int $ifMtu = null,
 
         #[Oid('1.3.6.1.2.1.2.2.1.5')]
+        public readonly ?int $ifSpeedLow = null, // TODO: FallbackValue?!
+
         #[Oid('1.3.6.1.2.1.31.1.1.1.15')] // highSpeed
         #[DbColumn('speed_kbit')]
         #[MultiplyInteger(1000)]
