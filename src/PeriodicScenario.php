@@ -2,15 +2,12 @@
 
 namespace IMEdge\SnmpFeature;
 
-use Exception;
 use IMEdge\SnmpFeature\Scenario\PollingTask;
 use IMEdge\SnmpFeature\Scenario\ScenarioResultHandler;
-use IMEdge\SnmpFeature\SnmpScenario\SnmpTarget;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
 use Psr\Log\LoggerInterface;
 use ReflectionClass;
 use RuntimeException;
-use Throwable;
 
 class PeriodicScenario
 {
