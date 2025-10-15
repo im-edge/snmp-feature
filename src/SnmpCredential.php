@@ -46,10 +46,10 @@ class SnmpCredential implements JsonSerialization
             $any['securityLevel'] = SnmpSecurityLevel::from($any['securityLevel']);
         }
         if (array_key_exists('authProtocol', $any)) {
-            $any['securityLevel'] = SnmpAuthProtocol::from($any['authProtocol']);
+            $any['authProtocol'] = SnmpAuthProtocol::from($any['authProtocol']);
         }
         if (array_key_exists('privProtocol', $any)) {
-            $any['securityLevel'] = SnmpPrivProtocol::from($any['privProtocol']);
+            $any['privProtocol'] = SnmpPrivProtocol::from($any['privProtocol']);
         }
 
         return new static(...$any);
