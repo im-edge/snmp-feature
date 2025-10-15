@@ -5,6 +5,6 @@ namespace IMEdge\SnmpFeature\DataStructure;
 use Attribute;
 
 #[Attribute]
-class DeviceIdentifier
+class DeviceIdentifier implements SpecialValueInterface
 {
 }
