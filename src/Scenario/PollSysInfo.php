@@ -45,7 +45,7 @@ class PollSysInfo
 
         #[Oid('1.3.6.1.2.1.1.7.0')]
         #[DbColumn('system_services')]
-        public readonly ?string $sysServices = null,
+        public readonly ?int $sysServices = null,
 
         #[Oid('1.3.6.1.2.1.1.2.0')]
         #[DbColumn('system_oid')]
