@@ -96,6 +96,7 @@ class PollEntity
         // 18 characters and must be stored in the entPhysicalModelName object.
         #[Oid('1.3.6.1.2.1.47.1.1.1.1.13')]
         #[DbColumn('model_name')]
+        #[MangleToUtf8]
         public readonly ?string $modelName = null, // entPhysicalModelName
 
         #[Oid('1.3.6.1.2.1.47.1.1.1.1.14')]
