@@ -2,7 +2,6 @@
 
 namespace IMEdge\SnmpFeature\Scenario;
 
-use IMEdge\SnmpFeature\DataMangler\DivideInteger;
 use IMEdge\SnmpFeature\DataMangler\ExactStringLengthOrNull;
 use IMEdge\SnmpFeature\DataMangler\MangleToUtf8;
 use IMEdge\SnmpFeature\DataMangler\MultiplyInteger;
