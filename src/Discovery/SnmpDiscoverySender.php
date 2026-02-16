@@ -7,13 +7,13 @@ use IMEdge\Config\Settings;
 use IMEdge\Inventory\NodeIdentifier;
 use IMEdge\IpListGenerator\IpListGenerator;
 use IMEdge\Json\JsonString;
-use IMEdge\Node\ApplicationContext;
 use IMEdge\Node\ImedgeWorker;
 use IMEdge\RedisUtils\RedisResult;
 use IMEdge\RpcApi\ApiMethod;
 use IMEdge\RpcApi\ApiNamespace;
 use IMEdge\Snmp\IncrementingRequestIdGenerator;
 use IMEdge\Snmp\SnmpMessage;
+use IMEdge\SnmpFeature\Redis\ImedgeRedis;
 use IMEdge\SnmpFeature\SnmpCredential;
 use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
@@ -23,8 +23,6 @@ use Revolt\EventLoop;
 use RuntimeException;
 use Socket;
 use stdClass;
-
-use function Amp\Redis\createRedisClient;
 
 #[ApiNamespace('snmpDiscoverySender')]
 class SnmpDiscoverySender implements ImedgeWorker
@@ -46,8 +44,7 @@ class SnmpDiscoverySender implements ImedgeWorker
         protected LoggerInterface $logger,
     ) {
         $this->idGenerator = new IncrementingRequestIdGenerator();
-        $this->redis = createRedisClient('unix://' . ApplicationContext::getRedisSocket());
-        $this->redis->execute('CLIENT', 'SETNAME', 'discoverySender');
+        $this->redis = ImedgeRedis::client('discoverySender');
     }
 
     #[ApiMethod]

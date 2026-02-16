@@ -5,15 +5,13 @@ namespace IMEdge\SnmpFeature\Discovery;
 use Amp\Redis\RedisClient;
 use IMEdge\Config\Settings;
 use IMEdge\Inventory\NodeIdentifier;
-use IMEdge\Node\ApplicationContext;
 use IMEdge\Node\ImedgeWorker;
 use IMEdge\RpcApi\ApiMethod;
 use IMEdge\RpcApi\ApiNamespace;
+use IMEdge\SnmpFeature\Redis\ImedgeRedis;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\UuidInterface;
 use Revolt\EventLoop;
-
-use function Amp\Redis\createRedisClient;
 
 #[ApiNamespace('snmpDiscoveryReceiver')]
 class SnmpDiscoveryReceiver implements ImedgeWorker
@@ -37,8 +35,7 @@ class SnmpDiscoveryReceiver implements ImedgeWorker
         protected readonly NodeIdentifier $nodeIdentifier,
         protected readonly LoggerInterface $logger,
     ) {
-        $this->redis = createRedisClient('unix://' . ApplicationContext::getRedisSocket());
-        $this->redis->execute('CLIENT', 'SETNAME', 'discoveryReceiver');
+        $this->redis = ImedgeRedis::client('discoveryReceiver');
     }
 
     #[ApiMethod]
