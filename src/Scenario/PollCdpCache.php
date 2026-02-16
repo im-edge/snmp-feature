@@ -28,7 +28,11 @@ use Ramsey\Uuid\UuidInterface;
     new SnmpTableIndex('cdpCacheDeviceIndex', new Oid('1.3.6.1.4.1.9.9.23.1.2.1.1.2')),
 ])]
 #[PollingTask(name: 'cdpCache', defaultInterval: 300)]
-#[DbTable(tableName: 'network_cdp_cache', keyProperties: ['device_uuid', 'if_index', 'cdp_cache_device_index'])]
+#[DbTable(tableName: 'network_cdp_cache', keyProperties: [
+    'device_uuid',
+    'if_index',
+    'cdp_cache_device_index'
+])]
 class PollCdpCache
 {
     public function __construct(
