@@ -3,19 +3,21 @@
 namespace IMEdge\SnmpFeature\DataMangler;
 
 use Attribute;
-use IMEdge\Snmp\DataType\DataType;
-use IMEdge\Snmp\DataType\ObjectIdentifier;
-use IMEdge\Snmp\DataType\OctetString;
+use IMEdge\SnmpPacket\VarBindValue\ObjectIdentifier;
+use IMEdge\SnmpPacket\VarBindValue\OctetString;
+use IMEdge\SnmpPacket\VarBindValue\VarBindValue;
 use RuntimeException;
 
 #[Attribute]
-class OidToOctetString implements SnmpDataTypeManglerInterface
+class OidToOctetString extends SimpleSnmpDataMangler
 {
-    public function transform(DataType $value): ?DataType
+    public const SHORT_NAME = 'oidToOctetString';
+
+    public function transformVarBindValue(VarBindValue $value): ?VarBindValue
     {
         if (!$value instanceof ObjectIdentifier) {
             throw new RuntimeException(
-                'Expected instance of ObjectIdentifier in LastOidOctetToInteger32, got ' . get_class($value)
+                'Expected instance of ObjectIdentifier in OidToOctetString, got ' . get_class($value)
             );
         }
         $result = '';
@@ -26,6 +28,6 @@ class OidToOctetString implements SnmpDataTypeManglerInterface
             $result .= chr(intval($chr));
         }
 
-        return OctetString::fromString($result);
+        return new OctetString($result);
     }
 }

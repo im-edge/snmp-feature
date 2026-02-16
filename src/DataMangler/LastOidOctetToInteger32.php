@@ -3,15 +3,17 @@
 namespace IMEdge\SnmpFeature\DataMangler;
 
 use Attribute;
-use IMEdge\Snmp\DataType\DataType;
-use IMEdge\Snmp\DataType\Integer32;
-use IMEdge\Snmp\DataType\ObjectIdentifier;
+use IMEdge\SnmpPacket\VarBindValue\Integer32;
+use IMEdge\SnmpPacket\VarBindValue\ObjectIdentifier;
+use IMEdge\SnmpPacket\VarBindValue\VarBindValue;
 use RuntimeException;
 
 #[Attribute]
-class LastOidOctetToInteger32 implements SnmpDataTypeManglerInterface
+class LastOidOctetToInteger32 extends SimpleSnmpDataMangler
 {
-    public function transform(DataType $value): ?DataType
+    public const SHORT_NAME = 'lastOidOctetToInteger32';
+
+    public function transformVarBindValue(VarBindValue $value): ?VarBindValue
     {
         if (!$value instanceof ObjectIdentifier) {
             throw new RuntimeException(
@@ -19,7 +21,7 @@ class LastOidOctetToInteger32 implements SnmpDataTypeManglerInterface
             );
         }
         if (preg_match('/\.(\d+)$/', $value->getReadableValue(), $m)) {
-            return Integer32::fromInteger((int) $m[1]);
+            return new Integer32((int) $m[1]);
         }
 
         throw new RuntimeException('Could not determine last numeric octet of ' . $value->getReadableValue());

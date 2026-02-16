@@ -2,9 +2,12 @@
 
 namespace IMEdge\SnmpFeature\DataMangler;
 
-use IMEdge\Snmp\DataType\DataType;
+use IMEdge\SnmpPacket\VarBindValue\VarBindValue;
+use JsonSerializable;
 
-interface SnmpDataTypeManglerInterface
+interface SnmpDataTypeManglerInterface extends JsonSerializable
 {
-    public function transform(DataType $value): ?DataType;
+    public function transformVarBindValue(VarBindValue $value): ?VarBindValue;
+
+    public static function getShortName(): string;
 }
