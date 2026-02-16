@@ -362,7 +362,7 @@ class ScenarioResultHandler
         ) {
             /** @var SnmpDataTypeManglerInterface $mangler */
             $mangler = $attribute->newInstance();
-            $value = $mangler->transform($value);
+            $value = $mangler->transformVarBindValue($value);
         }
     }
 
