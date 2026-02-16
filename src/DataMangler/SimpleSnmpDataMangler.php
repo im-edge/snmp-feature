@@ -8,7 +8,7 @@ abstract class SimpleSnmpDataMangler implements SnmpDataTypeManglerInterface
 
     public static function getShortName(): string
     {
-        return self::SHORT_NAME;
+        return static::SHORT_NAME;
     }
 
     protected function serializeSettings(): array
