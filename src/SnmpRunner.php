@@ -10,7 +10,6 @@ use IMEdge\Node\Events;
 use IMEdge\Node\Services;
 use IMEdge\Node\Worker\WorkerInstance;
 use IMEdge\Node\Worker\WorkerInstances;
-use IMEdge\RedisTables\RedisTables;
 use IMEdge\SnmpFeature\Discovery\SnmpDiscoveryReceiver;
 use IMEdge\SnmpFeature\Discovery\SnmpDiscoverySender;
 use IMEdge\SnmpFeature\NextGen\DedicatedResultHandler;
@@ -27,7 +26,6 @@ class SnmpRunner
 {
     /** @var ?PeriodicScenarioRunner[] */
     protected array $periodicScenarios = [];
-    protected ?RedisTables $redisTables = null;
     protected bool $shuttingDown = false;
     protected ?RedisClient $redisClientForMetrics = null;
     protected bool $startedRecently = true;
@@ -61,8 +59,6 @@ class SnmpRunner
             // There is a race condition on run/stop/run, affects log lines only
             $this->startedRecently = false;
         });
-        $this->redisTables = $this->services->getRedisTables('snmp/runner');
-        $this->logger->notice('SnmpRunner: redis tables are ready');
         $this->redisClientForMetrics = $this->services->getRedisClient('snmp/internalMetrics');
         $this->logger->notice('SnmpRunner: Redis connection for internal metrics is ready');
         $this->startDiscoveryWorkers();
