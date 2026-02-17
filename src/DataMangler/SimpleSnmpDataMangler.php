@@ -18,7 +18,7 @@ abstract class SimpleSnmpDataMangler implements SnmpDataTypeManglerInterface
 
     public function jsonSerialize(): array
     {
-        $settings = self::serializeSettings();
+        $settings = static::serializeSettings();
         if (empty($settings)) {
             return [static::SHORT_NAME];
         }
