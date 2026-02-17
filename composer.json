@@ -26,13 +26,14 @@
     "ext-sockets": "*",
     "imedge/node-provided-libs": "^0.12",
     "imedge/snmp": ">=0.4",
-    "imedge/snmp-client": "^0.2"
+    "imedge/snmp-client": "^0.4",
+    "imedge/snmp-packet": "^0.11"
   },
   "require-dev": {
     "ramsey/uuid": "^4",
     "phpstan/phpstan": "^1.10 | ^2",
     "phpunit/phpunit": "^10.3",
     "squizlabs/php_codesniffer": "^3.7 | ^4.0",
-    "symplify/easy-coding-standard": "^12.0"
+    "symplify/easy-coding-standard": "^12.0 | ^13"
   }
 }
