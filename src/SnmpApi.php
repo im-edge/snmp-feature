@@ -2,6 +2,7 @@
 
 namespace IMEdge\SnmpFeature;
 
+use Exception;
 use IMEdge\Config\Settings;
 use IMEdge\IpListGenerator\IpListGenerator;
 use IMEdge\Snmp\SocketAddress;
@@ -54,7 +55,7 @@ class SnmpApi
                 $start,
                 $address
             );
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return SnmpRequestHandler::handleRemoteFailure($e, $start, $address);
         }
     }
@@ -100,7 +101,7 @@ class SnmpApi
                     $address
                 );
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return SnmpRequestHandler::handleRemoteFailure($e, $start, $address);
         }
     }
@@ -211,7 +212,7 @@ class SnmpApi
                 $start,
                 $address
             );
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return SnmpRequestHandler::handleRemoteFailure($e, $start, $address);
         }
     }
