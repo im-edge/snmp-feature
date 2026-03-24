@@ -21,6 +21,7 @@ class ScenarioDefinition implements JsonSerialization
         /** @param ScenarioPropertyDefinition[] $properties */
         public readonly array $properties = [],
         public readonly ?SnmpTableIndexes $snmpTableIndexes = null,
+        public readonly ?int $defaultMaxRepetitions = null,
         public ?DbTableDefinition $dbTable = null,
         public ?MeasurementDefinition $measurement = null,
     ) {
@@ -87,6 +88,7 @@ class ScenarioDefinition implements JsonSerialization
             snmpTableIndexes: ($any->snmpTableIndexes ?? null)
                 ? SnmpTableIndexes::fromSerialization($any->snmpTableIndexes)
                 : null,
+            defaultMaxRepetitions: $any->defaultMaxRepetitions ?? null,
             dbTable: ($any->dbTable ?? null)
                 ? DbTableDefinition::fromSerialization($any->dbTable)
                 : null,
@@ -113,6 +115,9 @@ class ScenarioDefinition implements JsonSerialization
         }
         if ($this->measurement) {
             $object['measurement'] = $this->measurement;
+        }
+        if ($this->defaultMaxRepetitions) {
+            $object['defaultMaxRepetitions'] = $this->defaultMaxRepetitions;
         }
 
         return (object) $object;

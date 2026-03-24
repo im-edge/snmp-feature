@@ -29,20 +29,13 @@ class ScenarioReflection
     public static function scenario(string $scenarioClass): ScenarioDefinition
     {
         $reflection = new ReflectionClass($scenarioClass);
-        $name = null;
-
-        foreach ($reflection->getAttributes(PollingTask::class) as $attribute) {
-            /** @var PollingTask $task */
-            $task = $attribute->newInstance();
-            $name = $task->name;
-            $interval = $task->defaultInterval ?: 600;
+        $task = ReflectionHelper::getAttributeInstanceByInterface($reflection, PollingTask::class);
+        if (! $task) {
+            throw new RuntimeException("Scenario class $scenarioClass has no PollingTask");
         }
-        if ($interval === null) {
-            throw new RuntimeException("Scenario $name has no interval");
-        }
-        if ($name === null) {
-            throw new RuntimeException('ScenarioReflection expects a PollingTask, got ' . $scenarioClass);
-        }
+        $name = $task->name;
+        $interval = $task->defaultInterval ?: 600;
+        $maxRepetitions = $task->defaultMaxRepetitions;
         if ($dbTable = ReflectionHelper::getAttributeInstanceByInterface($reflection, DbTable::class)) {
             $dbTable = new DbTableDefinition($dbTable->tableName, array_keys($dbTable->keyProperties));
         }
@@ -66,6 +59,7 @@ class ScenarioReflection
             requestType: $requestType,
             properties: $properties,
             snmpTableIndexes: $snmpTableIndexes,
+            defaultMaxRepetitions: $maxRepetitions,
             dbTable: $dbTable,
             measurement: $measurement
         );
