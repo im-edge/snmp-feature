@@ -3,8 +3,9 @@
 namespace IMEdge\SnmpFeature;
 
 use Amp\Redis\RedisClient;
-use IMEdge\Json\JsonString;
+use IMEdge\Config\Settings;
 use IMEdge\Inventory\NodeIdentifier;
+use IMEdge\Json\JsonString;
 use IMEdge\Metrics\Measurement;
 use IMEdge\Node\Events;
 use IMEdge\Node\Services;
@@ -38,6 +39,7 @@ class SnmpRunner
         protected readonly LoggerInterface $logger,
         public readonly Events $events,
         public readonly Services $services,
+        protected readonly Settings $settings,
         protected readonly WorkerInstances $workerInstances,
         public SnmpCredentials $credentials = new SnmpCredentials([]),
         public SnmpTargets $targets = new SnmpTargets(),
