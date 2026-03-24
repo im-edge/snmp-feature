@@ -50,13 +50,9 @@ class SnmpApi
     ): SnmpResponse {
         $start = hrtime(true);
         try {
-            return SnmpRequestHandler::handleRemoteResult(
-                $this->getScenario($credentialUuid, $address, $name),
-                $start,
-                $address
-            );
+            return SnmpResponse::success($address, $start, $this->getScenario($credentialUuid, $address, $name));
         } catch (Exception $e) {
-            return SnmpRequestHandler::handleRemoteFailure($e, $start, $address);
+            return SnmpResponse::failure($address, $start, $e);
         }
     }
 
@@ -88,21 +84,13 @@ class SnmpApi
         try {
             $result = $this->getScenario($credentialUuid, $address, $name);
             $resultHandler = $this->loader->resultHandler($name);
-            if ($resultHandler->needsWalk()) {
-                return SnmpRequestHandler::handleRemoteResult(
-                    $resultHandler->getResultObjectInstances($nodeUuid, $deviceUuid, $result),
-                    $start,
-                    $address
-                );
-            } else {
-                return SnmpRequestHandler::handleRemoteResult(
-                    $resultHandler->getResultObjectInstance($nodeUuid, $deviceUuid, $result),
-                    $start,
-                    $address
-                );
-            }
+            $result = $resultHandler->needsWalk()
+                ? $resultHandler->getResultObjectInstances($nodeUuid, $deviceUuid, $result)
+                : $resultHandler->getResultObjectInstance($nodeUuid, $deviceUuid, $result);
+
+            return SnmpResponse::success($address, $start, $result);
         } catch (Exception $e) {
-            return SnmpRequestHandler::handleRemoteFailure($e, $start, $address);
+            return SnmpResponse::failure($address, $start, $e);
         }
     }
 
@@ -186,13 +174,13 @@ class SnmpApi
         $community = $this->runner->credentials->requireCredential($credentialUuid)->securityName;
         $start = hrtime(true);
         try {
-            return SnmpRequestHandler::handleRemoteResult(
-                $this->socket->get((array) $oidList, $address, $community),
+            return SnmpResponse::success(
+                $address,
                 $start,
-                $address
+                $this->socket->get((array) $oidList, $address, $community),
             );
-        } catch (\Exception $e) {
-            return SnmpRequestHandler::handleRemoteFailure($e, $start, $address);
+        } catch (Exception $e) {
+            return SnmpResponse::failure($address, $start, $e);
         }
     }
 
@@ -207,13 +195,13 @@ class SnmpApi
         $community = $this->runner->credentials->requireCredential($credentialUuid)->securityName;
         $start = hrtime(true);
         try {
-            return SnmpRequestHandler::handleRemoteResult(
-                $this->socket->walk($oid, (string) $address, $community, $limit, $nextOid),
+            return SnmpResponse::success(
+                $address,
                 $start,
-                $address
+                $this->socket->walk($oid, (string) $address, $community, $limit, $nextOid),
             );
         } catch (Exception $e) {
-            return SnmpRequestHandler::handleRemoteFailure($e, $start, $address);
+            return SnmpResponse::failure($address, $start, $e);
         }
     }
 
