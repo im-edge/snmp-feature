@@ -62,7 +62,9 @@ class ReflectionHelper
     }
 
     /**
-     * @param class-string $interface
+     * @template T
+     * @param class-string<T> $interface
+     * @return T|null
      */
     public static function getAttributeInstanceByInterface(
         ReflectionProperty|ReflectionClass $property,
