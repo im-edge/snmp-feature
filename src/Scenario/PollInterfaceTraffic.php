@@ -14,7 +14,7 @@ use IMEdge\SnmpFeature\DataStructure\SnmpTableIndexValue;
 use Ramsey\Uuid\UuidInterface;
 
 #[SnmpTable([new SnmpTableIndex('ifIndex', new Oid('1.3.6.1.2.1.2.2.1.1'))])]
-#[PollingTask(name: 'interfaceTraffic', defaultInterval: 15)]
+#[PollingTask(name: 'interfaceTraffic', defaultInterval: 15, defaultMaxRepetitions: 25)]
 #[NotYetNoAggDbTable('network_interface_status', [
     'device_uuid' => 'deviceUuid',
     'if_index'    => 'ifIndex',
