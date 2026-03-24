@@ -38,10 +38,13 @@ class PollInterfaceTraffic
         #[Oid('1.3.6.1.2.1.31.1.1.1.10')]
         #[Metric('ifOctetsOut', MetricDatatype::COUNTER)]
         public readonly int $ifOutOctets,
+        /*
 
+        // deprecated, not supported on most devices
         #[Oid('1.3.6.1.2.1.2.2.1.21')]
         #[Metric('ifOutQLen', MetricDatatype::GAUGE)]
         public readonly ?int $ifOutQLen = null,
+        */
     ) {
     }
 }
