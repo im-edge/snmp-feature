@@ -6,7 +6,6 @@ use Exception;
 use IMEdge\Config\Settings;
 use IMEdge\IpListGenerator\IpListGenerator;
 use IMEdge\Snmp\SocketAddress;
-use IMEdge\SnmpFeature\NextGen\PeriodicScenarioRegistry;
 use IMEdge\SnmpFeature\Scenario\ScenarioLoader;
 use IMEdge\SnmpFeature\SnmpScenario\KnownTargetsHealth;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
@@ -117,12 +116,6 @@ class SnmpApi
         } else {
             return $this->socket->get($oids, $address, $community);
         }
-    }
-
-    #[ApiMethod]
-    public function listScenarios(): array
-    {
-        return $this->loader->listScenarios();
     }
 
     #[ApiMethod]

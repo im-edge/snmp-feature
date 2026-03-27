@@ -37,11 +37,6 @@ class ScenarioLoader
         return $this->scenarios[$name] ?? throw new \RuntimeException("There is no such scenario: $name");
     }
 
-    public function listScenarios(): array
-    {
-        return $this->scenarios;
-    }
-
     protected function loadScenarios(): array
     {
         $implementations = [];
