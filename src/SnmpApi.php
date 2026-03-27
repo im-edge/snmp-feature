@@ -111,6 +111,10 @@ class SnmpApi
         return true;
     }
 
+    /**
+     * Hint: we ship targets, and ALL of them get pending on initial shipment.
+     * We might want to ship their former state, as Redis will otherwise not recognize a state change
+     */
     #[ApiMethod]
     public function setKnownTargets(SnmpTargets $targets): bool
     {
