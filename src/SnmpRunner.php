@@ -30,7 +30,6 @@ class SnmpRunner
     protected bool $shuttingDown = false;
     protected ?RedisClient $redisClientForMetrics = null;
     protected bool $startedRecently = true;
-    protected DedicatedResultHandler $resultHandler;
     public ?WorkerInstance $discoverySender = null;
     public ?WorkerInstance $discoveryReceiver = null;
 
@@ -45,13 +44,6 @@ class SnmpRunner
         public SnmpTargets $targets = new SnmpTargets(),
         public KnownTargetsHealth $health = new KnownTargetsHealth(),
     ) {
-        $this->resultHandler = new DedicatedResultHandler(
-            $this->nodeIdentifier,
-            $this->health,
-            $this->events,
-            $this->services,
-            $this->logger
-        );
     }
 
     public function run(): void
