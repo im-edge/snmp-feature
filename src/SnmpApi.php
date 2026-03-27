@@ -2,17 +2,17 @@
 
 namespace IMEdge\SnmpFeature;
 
+use Amp\Socket\InternetAddress;
 use Exception;
 use IMEdge\Config\Settings;
 use IMEdge\IpListGenerator\IpListGenerator;
-use IMEdge\Snmp\SocketAddress;
-use IMEdge\SnmpFeature\Scenario\ScenarioLoader;
 use IMEdge\SnmpFeature\SnmpScenario\KnownTargetsHealth;
+use IMEdge\SnmpFeature\SnmpScenario\SnmpTarget;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
 use IMEdge\RpcApi\ApiMethod;
 use IMEdge\RpcApi\ApiNamespace;
-use IMEdge\SnmpFeature\SnmpScenario\TargetState;
-use InvalidArgumentException;
+use IMEdge\SnmpPacket\Message\VarBindList;
+use IMEdge\SnmpPacket\Pdu\Response;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
@@ -23,7 +23,6 @@ use stdClass;
 class SnmpApi
 {
     protected ?SnmpSocket $socket;
-    protected ScenarioLoader $loader;
     protected bool $shuttingDown = false;
 
     public function __construct(
@@ -32,7 +31,6 @@ class SnmpApi
     ) {
         // TODO: v6 socket, socket pool?
         $this->socket = new SnmpSocket();
-        $this->loader = new ScenarioLoader($this->logger);
     }
 
     public function shutdown(): void
@@ -40,19 +38,15 @@ class SnmpApi
         $this->shuttingDown = true;
     }
 
+    // Used "live" from UI
     #[ApiMethod]
     public function scenario(
         UuidInterface $credentialUuid,
-        SocketAddress $address,
+        InternetAddress $address,
         string $name,
         ?UuidInterface $deviceUuid = null,
     ): SnmpResponse {
-        $start = hrtime(true);
-        try {
-            return SnmpResponse::success($address, $start, $this->getScenario($credentialUuid, $address, $name));
-        } catch (Exception $e) {
-            return SnmpResponse::failure($address, $start, $e);
-        }
+        return $this->getScenarioNew($address, $name);
     }
 
     #[ApiMethod]
@@ -61,61 +55,42 @@ class SnmpApi
         UuidInterface $deviceUuid,
         ?int $delay = null,
     ): bool {
-        $this->runner->scenarioController->jsonRpc->request('snmpScenarioController.triggerScenarioByName', [
+        return $this->runner->scenarioController->jsonRpc->request('snmpScenarioController.triggerScenarioByName', [
             $name,
             $deviceUuid,
             $delay
         ]);
-
-        return true;
     }
 
+    // live from UI
     #[ApiMethod]
     public function scenarioObject(
         UuidInterface $credentialUuid,
-        SocketAddress $address,
+        InternetAddress $address,
         string $name,
         ?UuidInterface $deviceUuid = null,
     ): SnmpResponse {
-        $nodeUuid = Uuid::fromString('00000000-0000-0000-0000-000000000000');
-
-        $start = hrtime(true);
-        try {
-            $result = $this->getScenario($credentialUuid, $address, $name);
-            $resultHandler = $this->loader->resultHandler($name);
-            $result = $resultHandler->needsWalk()
-                ? $resultHandler->getResultObjectInstances($nodeUuid, $deviceUuid, $result)
-                : $resultHandler->getResultObjectInstance($nodeUuid, $deviceUuid, $result);
-
-            return SnmpResponse::success($address, $start, $result);
-        } catch (Exception $e) {
-            return SnmpResponse::failure($address, $start, $e);
-        }
+        throw new RuntimeException('This method is deprecated');
+        // $result = $this->getScenarioNew($address, $name);
+        // -> there is no mor getResultObjectInstances() logic. Should we ship db updates and metrics?
     }
 
-    protected function getScenario(
-        UuidInterface $credentialUuid, // differs from @param!!
-        SocketAddress $address,
+    #[ApiMethod]
+    public function getScenarioDefinitions(): \stdClass
+    {
+        return $this->runner->scenarioController->jsonRpc->request('snmpScenarioController.getScenarios');
+    }
+
+    protected function getScenarioNew(
+        InternetAddress $address,
         string $name,
-    ): array {
-        $loader = $this->loader;
-        $resultHandler = $loader->resultHandler($name);
-        $oids = $resultHandler->getScenarioOids();
-        if (empty($oids)) {
-            throw new InvalidArgumentException("Scenario $name has no OIDs");
-        }
-
-        $community = $this->runner->credentials->requireCredential($credentialUuid)->securityName;
-        $tables = [];
-
-        if ($resultHandler->needsWalk()) {
-            foreach ($oids as $oid => $alias) {
-                $tables[$alias] = $this->socket->walk($oid, (string) $address, $community);
-            }
-            return $resultHandler->fixResult($tables);
-        } else {
-            return $this->socket->get($oids, $address, $community);
-        }
+    ): SnmpResponse {
+        return SnmpResponse::fromSerialization(
+            $this->runner->scenarioPoller->jsonRpc->request('snmpScenarioPoller.runScenarioByName', [
+                (string) $address,
+                $name
+            ])
+        );
     }
 
     #[ApiMethod]
@@ -130,7 +105,8 @@ class SnmpApi
         foreach ($credentials->credentials as $credential) {
             $this->logger->notice(sprintf('Got credential %s(%s)', $credential->name, $credential->uuid->toString()));
         }
-        $this->runner->credentials = $credentials;
+
+        $this->runner->setCredentials($credentials);
 
         return true;
     }
@@ -141,27 +117,15 @@ class SnmpApi
         // 1788 targets -> 180kB
         // {"address":{"ip":"194.244.15.28","port":161},"credentialUuid":"92a9178c-6dee-432c-bc67-1d67776454a5"}]},"target":"730345e8-559b-45f3-b89d-184d866964cf","id":4058410},
         // 170 Bytes per target
-        $diff = $this->runner->targets->listRemovedTargets($targets);
-        $this->runner->targets = $targets;
-        $health = $this->runner->health;
-        foreach ($diff as $target) {
-            $health->forget($target->identifier);
-        }
-        foreach ($targets->targets as $newTarget) {
-            if (! $health->has($newTarget->identifier)) {
-                $health->setCurrentResult($newTarget->identifier, TargetState::PENDING);
-            }
-        }
-        $reg = new PeriodicScenarioRegistry();
-        // $this->runner->launchPeriodicHealthChecks();
-        $this->runner->launchPeriodicScenarios($reg->listScenarios());
+        $this->runner->setTargets($this->appendLabTarget($targets));
+
         return true;
     }
 
     #[ApiMethod]
     public function get(
         UuidInterface $credentialUuid,
-        SocketAddress $address,
+        InternetAddress $address,
         object $oidList,
     ): SnmpResponse {
         $community = $this->runner->credentials->requireCredential($credentialUuid)->securityName;
@@ -180,7 +144,7 @@ class SnmpApi
     #[ApiMethod]
     public function walk(
         UuidInterface $credentialUuid, // differs from @param!!
-        SocketAddress $address,
+        InternetAddress $address,
         string $oid,
         ?int $limit = null,
         ?string $nextOid = null
