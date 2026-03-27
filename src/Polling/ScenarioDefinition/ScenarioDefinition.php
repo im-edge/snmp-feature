@@ -6,7 +6,6 @@ use IMEdge\Json\JsonSerialization;
 use IMEdge\SnmpFeature\Capability\CapabilityHasChildOid;
 use IMEdge\SnmpFeature\Capability\CapabilityHasMib;
 use IMEdge\SnmpFeature\Capability\CapabilitySet;
-use IMEdge\SnmpFeature\RequestedOidList;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use stdClass;
@@ -37,11 +36,6 @@ class ScenarioDefinition implements JsonSerialization
         }
 
         return $oids;
-    }
-
-    public function getOidList(): RequestedOidList
-    {
-        return new RequestedOidList($this->listOids());
     }
 
     public function getRequiredCapabilities(): CapabilitySet
