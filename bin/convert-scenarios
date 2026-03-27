@@ -1,0 +1,9 @@
+#!/usr/bin/env php
+<?php
+
+use IMEdge\SnmpFeature\Polling\ScenarioDefinition\SnmpScenarioConverter;
+
+require_once dirname(__DIR__, 2) . '/node/vendor/autoload.php'; // TODO??
+require_once dirname(__DIR__) . '/vendor/autoload.php';
+
+echo SnmpScenarioConverter::dumpPhpBasedToJsonString();
