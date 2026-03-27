@@ -56,7 +56,13 @@ class PollInterfaceStatus
         #[Oid('1.3.6.1.2.1.17.2.15.1.8')]
         #[DbColumn('stp_designated_bridge')]
         public readonly ?string $stpDesignatedBridge = null,
-        //
+
+        // I'd prefer to move this elsewhere. For the records:
+        // Structure: [dot1dStpPortPriority (4 Bits)][dot1dStpPort (12 Bits)]
+        // Format: 2-Byte OctetString
+        // Example, a value of 80 01 would mean:
+        // - priority: 0x80 = 128 (decimal)
+        // - port number: 0x001 = 1 (decimal)
         #[Oid('1.3.6.1.2.1.17.2.15.1.9')]
         #[DbColumn('stp_designated_port')]
         public readonly ?string $stpDesignatedPort = null,
