@@ -18,7 +18,7 @@ use IMEdge\SnmpFeature\DataStructure\TruthValue;
 use Ramsey\Uuid\UuidInterface;
 
 #[SnmpTable([new SnmpTableIndex('ifIndex', new Oid('1.3.6.1.2.1.2.2.1.1'))])]
-#[PollingTask(name: 'interfaceConfig', defaultInterval: 600)]
+#[PollingTask(name: 'interfaceConfig', defaultInterval: 600, defaultMaxRepetitions: 5)]
 #[LookupMap(keyProperty: 'ifIndex', valueProperty: 'ifDescr')]
 #[DbTable(tableName: 'snmp_interface_config', keyProperties: [
     'system_uuid' => 'systemUuid',

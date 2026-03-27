@@ -11,7 +11,7 @@ use IMEdge\SnmpFeature\DataStructure\SnmpTableIndex;
 use IMEdge\SnmpFeature\DataStructure\SnmpTableIndexValue;
 
 #[SnmpTable([new SnmpTableIndex('ifIndex', new Oid('1.3.6.1.2.1.2.2.1.1'))])]
-#[PollingTask(name: 'interfaceError', defaultInterval: 60)]
+#[PollingTask(name: 'interfaceError', defaultInterval: 60, defaultMaxRepetitions: 10)]
 #[Measurement('if_error', 'ifIndex')]
 class PollInterfaceErrors
 {

@@ -14,7 +14,7 @@ use IMEdge\SnmpFeature\DataStructure\SnmpTableIndex;
 use IMEdge\SnmpFeature\DataStructure\SnmpTableIndexValue;
 use Ramsey\Uuid\UuidInterface;
 
-#[PollingTask('sensors', 300)]
+#[PollingTask('sensors', 300, defaultMaxRepetitions: 6)]
 #[DbTable('inventory_physical_entity_sensor', [
     'device_uuid'  => 'deviceUuid',
     'entity_index' => 'entityIndex'

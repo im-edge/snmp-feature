@@ -34,7 +34,7 @@ use Ramsey\Uuid\UuidInterface;
  * physical ports (i.e., associated entPhysicalClass value is
  * 'port(10)') are permitted to exist in this table.
  */
-#[PollingTask('entityIfMap', 300)]
+#[PollingTask('entityIfMap', 300, 50)]
 #[DbTable('inventory_entity_ifmap', [
     'device_uuid'  => 'deviceUuid',
     'entity_index' => 'entityIndex'

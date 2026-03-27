@@ -17,7 +17,7 @@ use IMEdge\SnmpFeature\SnmpScenario\Event\BootEvent;
 use Ramsey\Uuid\UuidInterface;
 
 #[SnmpTable([new SnmpTableIndex('ifIndex', new Oid('1.3.6.1.2.1.2.2.1.1'))])]
-#[PollingTask(name: 'interfaceStatus', defaultInterval: 60)]
+#[PollingTask(name: 'interfaceStatus', defaultInterval: 60, defaultMaxRepetitions: 8)]
 #[DbTable('snmp_interface_status', [
     'system_uuid' => 'systemUuid',
     'if_index'    => 'ifIndex'
