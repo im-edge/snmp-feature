@@ -3,6 +3,13 @@
 namespace IMEdge\SnmpFeature;
 
 use IMEdge\Json\JsonSerialization;
+use IMEdge\SnmpEngine\SnmpCredential as EngineSnmpCredential;
+use IMEdge\SnmpPacket\SnmpSecurityLevel;
+use IMEdge\SnmpPacket\SnmpSecurityLevel as PacketSnmpSecurityLevel;
+use IMEdge\SnmpPacket\Usm\SnmpAuthProtocol;
+use IMEdge\SnmpPacket\Usm\SnmpAuthProtocol as EngineSnmpAuthProtocol;
+use IMEdge\SnmpPacket\Usm\SnmpPrivProtocol;
+use IMEdge\SnmpPacket\Usm\SnmpPrivProtocol as EngineSnmpPrivProtocol;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 
@@ -53,6 +60,19 @@ class SnmpCredential implements JsonSerialization
         }
 
         return new static(...$any);
+    }
+
+    public function toEngineCredential(): EngineSnmpCredential
+    {
+        return new EngineSnmpCredential(
+            $this->version->toNewVersion(),
+            $this->securityName,
+            PacketSnmpSecurityLevel::from($this->securityLevel->value),
+            $this->authProtocol ? EngineSnmpAuthProtocol::from($this->authProtocol->value) : null,
+            $this->authKey,
+            $this->privProtocol ? EngineSnmpPrivProtocol::from($this->privProtocol->value) : null,
+            $this->privKey
+        );
     }
 
     protected static function unSerializeKeys($any): array
