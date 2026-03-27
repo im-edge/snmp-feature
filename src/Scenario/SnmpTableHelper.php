@@ -2,73 +2,64 @@
 
 namespace IMEdge\SnmpFeature\Scenario;
 
-use IMEdge\Snmp\DataType\DataType;
-use IMEdge\Snmp\DataType\DataTypeContextSpecific;
-use IMEdge\Snmp\DataType\ObjectIdentifier;
-use IMEdge\SnmpFeature\DataStructure\SnmpTableIndex;
-use Psr\Log\LoggerInterface;
+use IMEdge\SnmpFeature\Polling\ScenarioDefinition\SnmpTableIndexes;
+use IMEdge\SnmpPacket\Message\VarBind;
+use IMEdge\SnmpPacket\Message\VarBindList;
+use IMEdge\SnmpPacket\VarBindValue\ObjectIdentifier;
 use RuntimeException;
 
 class SnmpTableHelper
 {
-    /**
-     * @param SnmpTableIndex[] $indexes
-     */
-    public static function flattenResult(LoggerInterface $logger, array $indexes, array $result, array $keys): array
+    public static function flipTableResult($result): array
     {
-        $final = [];
-        foreach ($result as $table => $results) {
-            /** @var DataType $value */
-            foreach ($results as $oid => $value) {
-                $combinedIndex = '';
-                $row = [];
-
-                $matchedRequest = null;
-                foreach ($keys as $requestedOid => $requestedProperty) {
-                    if (str_starts_with($oid, $requestedOid . '.')) {
-                        $matchedRequest = $requestedOid;
-                        $oidSuffix = substr($oid, strlen($requestedOid) + 1);
-                    }
+        $flipped = [];
+        foreach ((array) $result as $propertyName => $rows) {
+            // Ignoring propertyName, as we'll look it up again
+            foreach ($rows as $relativeOid => $row) {
+                $flipped[$relativeOid] ??= new VarBindList();
+                if ($row instanceof Varbind) {
+                    $requestedOid = preg_replace('/' . preg_quote('.' . $relativeOid, '/') . '$/', '', $row->oid);
+                    $flipped[$relativeOid]->varBinds[] = new VarBind($requestedOid, $row->value);
+                } else {
+                    // result has full OID, we want to see the requested one
+                    $requestedOid = preg_replace('/' . preg_quote('.' . $relativeOid, '/') . '$/', '', $row[0]);
+                    $row[0] = $requestedOid;
+                    $flipped[$relativeOid]->varBinds[] = VarBind::fromSerialization($row);
                 }
-                if ($matchedRequest === null) {
-                    // $value->getTag()-> DataTypeContextSpecific::NO_SUCH_OBJECT, ::NO_SUCH_INSTANCE, ::END_OF_MIB_VIEW
-                    if (!($value instanceof DataTypeContextSpecific)) {
-                        $logger->debug(sprintf(
-                            'Unexpected OID in result for %s: %s (%s)',
-                            $table,
-                            $oid,
-                            $value->getReadableValue()
-                        ));
-                    }
-                    continue;
-                }
-
-                foreach ($indexes as $index) {
-                    if ($index->implicit) {
-                        $idxValue = self::stripFromOid($oidSuffix, $index->length);
-                    } else {
-                        $length = self::stripFromOid($oidSuffix, 1);
-                        if (! ctype_digit($length)) {
-                            throw new RuntimeException("Got invalid implicit index length: '$length'");
-                        }
-                        $idxValue = self::stripFromOid($oidSuffix, intval($length));
-                    }
-
-                    if ($combinedIndex !== '') {
-                        $combinedIndex .= '.';
-                    }
-                    $combinedIndex .= $idxValue;
-                    $row[$index->name] = ObjectIdentifier::fromString($idxValue);
-                }
-                foreach ($row as $k => $v) {
-                    $final[$combinedIndex][$k] ??= $v; // TODO: Object with type
-                }
-
-                $final[$combinedIndex][$keys[$matchedRequest]] = $value;
             }
         }
 
-        return $final;
+        return $flipped;
+    }
+
+    public static function appendTableIndexesToVarBindList(
+        string $oidSuffix,
+        VarBindList $varBinds,
+        SnmpTableIndexes $tableIndexes
+    ): void {
+        $combinedIndex = '';
+        $extracted = [];
+        foreach ($tableIndexes->indexes as $index) {
+            if ($index->implicit) {
+                $idxValue = self::stripFromOid($oidSuffix, $index->length);
+            } else {
+                $length = self::stripFromOid($oidSuffix, 1);
+                if (! ctype_digit($length)) {
+                    throw new RuntimeException("Got invalid implicit index length: '$length'");
+                }
+                $idxValue = self::stripFromOid($oidSuffix, intval($length));
+            }
+
+            if ($combinedIndex !== '') {
+                $combinedIndex .= '.';
+            }
+            $combinedIndex .= $idxValue;
+            $extracted[] = [$index->oid->oid, new ObjectIdentifier($idxValue)];
+        }
+
+        foreach ($extracted as $idx) {
+            $varBinds->varBinds[] = new VarBind($idx[0], $idx[1]); // OID from Index
+        }
     }
 
     protected static function stripFromOid(string &$oid, int $length): string
