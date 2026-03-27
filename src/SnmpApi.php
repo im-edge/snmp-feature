@@ -61,11 +61,11 @@ class SnmpApi
         UuidInterface $deviceUuid,
         ?int $delay = null,
     ): bool {
-        $this->runner->getPeriodicScenarioRunner($this->loader->getClass($name))->trigger(
-            $this->runner->targets->targets[$deviceUuid->toString()]
-                ?? throw new RuntimeException('There is no such target: ' . $deviceUuid->toString()),
+        $this->runner->scenarioController->jsonRpc->request('snmpScenarioController.triggerScenarioByName', [
+            $name,
+            $deviceUuid,
             $delay
-        );
+        ]);
 
         return true;
     }
