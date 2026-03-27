@@ -26,8 +26,7 @@
     "ext-sockets": "*",
     "imedge/node-provided-libs": "^0.12",
     "imedge/snmp": ">=0.4",
-    "imedge/snmp-client": "^0.4",
-    "imedge/snmp-packet": "^0.11"
+    "imedge/snmp-engine": "^0.1"
   },
   "require-dev": {
     "ramsey/uuid": "^4",
