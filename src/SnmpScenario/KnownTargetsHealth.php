@@ -18,6 +18,11 @@ class KnownTargetsHealth implements JsonSerializable
         return ($this->targets[$target] ?? null) === TargetState::REACHABLE;
     }
 
+    public function isFailing(string $target): bool
+    {
+        return ($this->targets[$target] ?? null) === TargetState::FAILING;
+    }
+
     public function has(string $target): bool
     {
         return isset($this->targets[$target]);
