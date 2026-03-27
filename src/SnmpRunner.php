@@ -2,36 +2,35 @@
 
 namespace IMEdge\SnmpFeature;
 
-use Amp\Redis\RedisClient;
 use IMEdge\Config\Settings;
 use IMEdge\Inventory\NodeIdentifier;
-use IMEdge\Json\JsonString;
-use IMEdge\Metrics\Measurement;
 use IMEdge\Node\Events;
 use IMEdge\Node\Services;
 use IMEdge\Node\Worker\WorkerInstance;
 use IMEdge\Node\Worker\WorkerInstances;
 use IMEdge\SnmpFeature\Discovery\SnmpDiscoveryReceiver;
 use IMEdge\SnmpFeature\Discovery\SnmpDiscoverySender;
-use IMEdge\SnmpFeature\NextGen\DedicatedResultHandler;
+use IMEdge\SnmpFeature\Polling\Worker\Snmp\SnmpPoller;
+use IMEdge\SnmpFeature\Polling\Worker\SnmpScenarioController;
+use IMEdge\SnmpFeature\Polling\Worker\SnmpScenarioPoller;
+use IMEdge\SnmpFeature\Polling\Worker\SnmpScenarioResultHandler;
 use IMEdge\SnmpFeature\SnmpScenario\KnownTargetsHealth;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
 use Revolt\EventLoop;
-use Throwable;
-
-use function Amp\async;
 
 class SnmpRunner
 {
-    /** @var ?PeriodicScenarioRunner[] */
-    protected array $periodicScenarios = [];
     protected bool $shuttingDown = false;
-    protected ?RedisClient $redisClientForMetrics = null;
     protected bool $startedRecently = true;
+
     public ?WorkerInstance $discoverySender = null;
     public ?WorkerInstance $discoveryReceiver = null;
+    public ?WorkerInstance $scenarioController = null;
+    public ?WorkerInstance $snmpPoller = null;
+    public ?WorkerInstance $scenarioPoller = null;
+    public ?WorkerInstance $scenarioResultHandler = null;
 
     public function __construct(
         public readonly NodeIdentifier $nodeIdentifier,
@@ -53,95 +52,56 @@ class SnmpRunner
             // There is a race condition on run/stop/run, affects log lines only
             $this->startedRecently = false;
         });
-        $this->redisClientForMetrics = $this->services->getRedisClient('snmp/internalMetrics');
-        $this->logger->notice('SnmpRunner: Redis connection for internal metrics is ready');
         $this->startDiscoveryWorkers();
+        $this->startScenarioWorkers();
     }
 
     public function stop(): void
     {
         $this->shuttingDown = true;
         $this->stopDiscoveryWorkers();
-        $this->stopAllPeriodicScenarios();
+        $this->stopScenarioWorkers();
     }
 
-    public function launchPeriodicScenarios(array $scenarioClasses): void
+    public function setTargets(SnmpTargets $targets): void
     {
-        foreach ($scenarioClasses as $class) {
-            $this->stopPeriodicScenario($class);
+        $diff = $this->targets->listRemovedTargets($targets);
+        $this->targets = $targets;
+        foreach ($diff as $target) {
+            $this->health->forget($target->identifier);
         }
-        if (empty($this->targets->targets)) {
-            $this->logger->notice('Got no targets');
-            return;
-        }
-        foreach ($scenarioClasses as $class) {
-            $this->launchPeriodicScenario($class);
-        }
-    }
-
-    public function getPeriodicScenarioRunner(string $class): PeriodicScenarioRunner
-    {
-        return $this->periodicScenarios[$class]
-            ?? throw new \RuntimeException('Periodic scenario not loaded: ' . $class);
-    }
-
-    protected function stopPeriodicScenario(string $class): void
-    {
-        if (isset($this->periodicScenarios[$class])) {
-            $this->logger->notice("Stopping periodic scenario runner instance for $class");
-            $this->periodicScenarios[$class]->stop();
-            unset($this->periodicScenarios[$class]);
-        }
-    }
-
-    protected function shipScenarioMeasurement(Measurement $measurement): void
-    {
-        EventLoop::queue(function () use ($measurement) {
-            $this->redisClientForMetrics?->execute(
-                'XADD',
-                'internalMetrics',
-                'MAXLEN',
-                '~',
-                10_000,
-                '*',
-                'measurement',
-                JsonString::encode($measurement)
-            );
-        });
-    }
-
-    protected function launchPeriodicScenario(string $class): void
-    {
-        $scenario = new PeriodicScenario($class, $this->targets, $this->logger);
-        $this->periodicScenarios[$class] = $runner = new PeriodicScenarioRunner($this, $scenario, $this->logger);
-
-        // Internal measurements, not result-related
-        $runner->on(PeriodicScenarioRunner::ON_MEASUREMENT, $this->shipScenarioMeasurement(...));
-        $runner->on(PeriodicScenarioRunner::ON_MEASUREMENT, function (Measurement $measurement) {
-            $this->events->emit('measurements', [[$measurement]]);
-        });
-        $runner->on(PeriodicScenarioRunner::ON_RESULT, function (Result $result) {
-            // $this->logger->notice($scenario->name . ' shipped a result');
-            try {
-                $this->resultHandler->processResult($result);
-            } catch (Throwable $e) {
-                $this->logger->error('Processing result failed: ' . $e->getMessage());
+        foreach ($targets->targets as $newTarget) {
+            if (! $this->health->has($newTarget->identifier)) {
+                $this->health->setCurrentResult($newTarget->identifier, $newTarget->state);
             }
-        });
-        $runner->start();
+        }
+
+        /** @see SnmpScenarioPoller::setTargets() */
+        $this->scenarioPoller->jsonRpc->request('snmpScenarioPoller.setTargets', [$this->targets]);
+        $this->snmpPoller->jsonRpc->request('snmpPoller.setTargets', [$this->targets]);
+        $this->scenarioResultHandler->jsonRpc->request('snmpScenarioResultHandler.setTargets', [$this->targets]);
+        $this->scenarioController->jsonRpc->request('snmpScenarioController.setTargets', [$this->targets]);
+    }
+
+    public function setCredentials(SnmpCredentials $credentials): void
+    {
+        $this->credentials = $credentials;
+        /** @see SnmpScenarioPoller::setCredentials() */
+        $this->scenarioPoller->jsonRpc->request('snmpScenarioPoller.setCredentials', [$credentials]);
+        $this->snmpPoller->jsonRpc->request('snmpPoller.setCredentials', [$credentials]);
     }
 
     protected function startDiscoveryWorkers(): void
     {
-        $receiver = $this->workerInstances->launchWorker('snmp-discovery-receiver', Uuid::uuid4());
-        $receiver->run(SnmpDiscoveryReceiver::class);
-        $this->discoveryReceiver = $receiver;
+        $worker = $this->workerInstances->launchWorker('snmp-discovery-receiver', Uuid::uuid4());
+        $worker->run(SnmpDiscoveryReceiver::class);
+        $this->discoveryReceiver = $worker;
 
-        $sender = $this->workerInstances->launchWorker('snmp-discovery-sender', Uuid::uuid4());
-        $sender->run(SnmpDiscoverySender::class);
-        $this->discoverySender = $sender;
+        $worker = $this->workerInstances->launchWorker('snmp-discovery-sender', Uuid::uuid4());
+        $worker->run(SnmpDiscoverySender::class);
+        $this->discoverySender = $worker;
 
-        $this->logger->notice('Lanched Sender and Receiver for Discovery Tasks');
+        $this->logger->debug('Launched Sender and Receiver for Discovery Tasks');
     }
 
     protected function stopDiscoveryWorkers(): void
@@ -154,13 +114,57 @@ class SnmpRunner
             $this->discoveryReceiver->stop();
             $this->discoveryReceiver = null;
         }
+        $this->logger->debug('Stopped Sender and Receiver for Discovery Tasks');
     }
 
-    protected function stopAllPeriodicScenarios(): void
+    protected function startScenarioWorkers(): void
     {
-        foreach ($this->periodicScenarios as $scenario) {
-            $scenario->stop();
+        $worker = $this->workerInstances->launchWorker('snmp-scenario-controller', Uuid::uuid4());
+        $worker->run(SnmpScenarioController::class);
+        $this->scenarioController = $worker;
+
+        $poller = $this->workerInstances->launchWorker('snmp-scenario-poller', Uuid::uuid4());
+        $poller->run(SnmpScenarioPoller::class);
+        $this->scenarioPoller = $poller;
+
+        $worker = $this->workerInstances->launchWorker('snmp-poller', Uuid::uuid4());
+        $worker->run(SnmpPoller::class);
+        $this->snmpPoller = $worker;
+
+        $worker = $this->workerInstances->launchWorker('snmp-scenario-result-handler', Uuid::uuid4());
+        $worker->run(SnmpScenarioResultHandler::class);
+        $this->scenarioResultHandler = $worker;
+
+        if ($pathToMetricStore = $this->settings->get('metricStore')) {
+            $this->scenarioResultHandler->jsonRpc->request(
+                'snmpScenarioResultHandler.setMetricStorePath',
+                [$pathToMetricStore]
+            );
+        } else {
+            $this->logger->notice('SNMP feature is running w/o metric store');
         }
-        $this->periodicScenarios = [];
+
+        $this->logger->debug('Launched SNMP/Scenario Workers');
+    }
+
+    protected function stopScenarioWorkers(): void
+    {
+        if ($this->scenarioController) {
+            $this->scenarioController->stop();
+            $this->scenarioController = null;
+        }
+        if ($this->snmpPoller) {
+            $this->snmpPoller->stop();
+            $this->snmpPoller = null;
+        }
+        if ($this->scenarioPoller) {
+            $this->scenarioPoller->stop();
+            $this->scenarioPoller = null;
+        }
+        if ($this->scenarioResultHandler) {
+            $this->scenarioResultHandler->stop();
+            $this->scenarioResultHandler = null;
+        }
+        $this->logger->debug('Stopped SNMP/Scenario Workers');
     }
 }
