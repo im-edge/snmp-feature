@@ -2,8 +2,8 @@
 
 namespace IMEdge\SnmpFeature\SnmpScenario;
 
+use Amp\Socket\InternetAddress;
 use IMEdge\Json\JsonSerialization;
-use IMEdge\Snmp\SocketAddress;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 
@@ -11,7 +11,7 @@ class SnmpTarget implements JsonSerialization
 {
     public function __construct(
         public readonly string $identifier,
-        public readonly SocketAddress $address,
+        public readonly InternetAddress $address,
         public readonly UuidInterface $credentialUuid,
         public TargetState $state = TargetState::PENDING,
         protected array $supportedFeatures = [],
@@ -23,7 +23,7 @@ class SnmpTarget implements JsonSerialization
     {
         return new static(
             identifier: $any->identifier,
-            address: SocketAddress::fromSerialization($any->address),
+            address: InternetAddress::fromString($any->address),
             credentialUuid: Uuid::fromString($any->credentialUuid),
             state: isset($any->state) ? TargetState::from($any->state) : TargetState::PENDING,
             supportedFeatures: $any->supportedFeatures ?? []

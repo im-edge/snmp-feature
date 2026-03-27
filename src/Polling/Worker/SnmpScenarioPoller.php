@@ -13,7 +13,6 @@ use IMEdge\Json\JsonString;
 use IMEdge\Node\ImedgeWorker;
 use IMEdge\RpcApi\ApiMethod;
 use IMEdge\RpcApi\ApiNamespace;
-use IMEdge\Snmp\SocketAddress;
 use IMEdge\SnmpEngine\Dispatcher\SnmpDispatcher;
 use IMEdge\SnmpEngine\SnmpPoller;
 use IMEdge\SnmpFeature\Polling\ScenarioDefinition\ScenarioDefinition;
@@ -113,7 +112,7 @@ class SnmpScenarioPoller implements ImedgeWorker
     }
 
     #[ApiMethod]
-    public function runScenario(SocketAddress $address, UuidInterface $scenarioUuid): SnmpResponse
+    public function runScenario(InternetAddress $address, UuidInterface $scenarioUuid): SnmpResponse
     {
         // TODO: dynamic target
         $target = $this->getOptionalTargetByAddress($address)
@@ -144,7 +143,7 @@ class SnmpScenarioPoller implements ImedgeWorker
     }
 
     #[ApiMethod]
-    public function runScenarioByName(SocketAddress $address, string $scenarioName): SnmpResponse
+    public function runScenarioByName(InternetAddress $address, string $scenarioName): SnmpResponse
     {
         // TODO: dynamic target
         $target = $this->getOptionalTargetByAddress($address)
@@ -212,14 +211,14 @@ class SnmpScenarioPoller implements ImedgeWorker
         throw new InvalidArgumentException("Got no such scenario: $name");
     }
 
-    protected function getOptionalTargetByAddress(SocketAddress $address): ?SnmpTarget
+    protected function getOptionalTargetByAddress(InternetAddress $address): ?SnmpTarget
     {
-        $addressDiff = $address->toUdpUri();
+        $addressDiff = $address->toString();
         foreach ($this->targets->targets as $target) {
-            if ($target->address->toUdpUri() === $addressDiff) {
+            if ($target->address->toString() === $addressDiff) {
                 return $target;
             } else {
-                $this->logger->notice(sprintf('%s != %s', $addressDiff, $target->address->toUdpUri()));
+                $this->logger->notice(sprintf('%s != %s', $addressDiff, $target->address->toString()));
             }
         }
 
