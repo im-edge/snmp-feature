@@ -3,18 +3,14 @@
 namespace IMEdge\SnmpFeature\Polling\Worker\ResultHandler;
 
 use IMEdge\Inventory\NodeIdentifier;
-use IMEdge\Json\JsonString;
 use IMEdge\RedisTables\RedisTables;
-use IMEdge\SnmpFeature\Polling\ScenarioDefinition\DbTableDefinition;
 use IMEdge\SnmpFeature\Polling\ScenarioDefinition\ScenarioDefinition;
 use IMEdge\SnmpFeature\Redis\ImedgeRedis;
 use IMEdge\SnmpFeature\Scenario\SnmpTableHelper;
 use IMEdge\SnmpFeature\SnmpResponse;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTarget;
-use IMEdge\SnmpPacket\Message\VarBind;
 use IMEdge\SnmpPacket\Message\VarBindList;
 use Psr\Log\LoggerInterface;
-use Ramsey\Uuid\UuidInterface;
 
 /**
  * Result processing
@@ -103,7 +99,7 @@ class ScenarioResultProcessor
             }
         }
         if ($dbTablesRow = $this->scenario->dbTable?->prepareRedisTableRow($values)) {
-            $this->logger->notice('ROW: ' . var_export($dbTablesRow, 1));
+            // $this->logger->notice('ROW: ' . var_export($dbTablesRow, 1));
             try {
                 $result = $this->redisTables->setTableEntry(...$dbTablesRow);
             } catch (\Exception $e) {
@@ -170,7 +166,7 @@ class ScenarioResultProcessor
             $this->logger->error(sprintf(
                 'Will set health to fail for %s (%s)%s',
                 $target->identifier,
-                $target->address->ip,
+                $target->address,
                 $response->errorMessage ? ': ' . $response->errorMessage : ''
             ));
         }
