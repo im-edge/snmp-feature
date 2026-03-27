@@ -4,6 +4,8 @@ namespace IMEdge\SnmpFeature\SnmpScenario;
 
 use Amp\Socket\InternetAddress;
 use IMEdge\Json\JsonSerialization;
+use IMEdge\SnmpFeature\Capability\CapabilitySet;
+use IMEdge\SnmpFeature\Polling\ScenarioDefinition\ScenarioDefinition;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 
@@ -14,9 +16,14 @@ class SnmpTarget implements JsonSerialization
         public readonly InternetAddress $address,
         public readonly UuidInterface $credentialUuid,
         public TargetState $state = TargetState::PENDING,
-        protected array $supportedFeatures = [],
+        public CapabilitySet $capabilities = new CapabilitySet([]),
         // lastError?
     ) {
+    }
+
+    public function wants(ScenarioDefinition $scenario): bool
+    {
+        return $this->capabilities->supports($scenario->getRequiredCapabilities());
     }
 
     public static function fromSerialization($any): SnmpTarget|static
@@ -26,33 +33,20 @@ class SnmpTarget implements JsonSerialization
             address: InternetAddress::fromString($any->address),
             credentialUuid: Uuid::fromString($any->credentialUuid),
             state: isset($any->state) ? TargetState::from($any->state) : TargetState::PENDING,
-            supportedFeatures: $any->supportedFeatures ?? []
+            capabilities: isset($any->capabilities)
+                ? CapabilitySet::fromSerialization($any->capabilities)
+                : new CapabilitySet([]),
         );
-    }
-
-    /**
-     * Currently unused. Idea: get told,
-     * @param string $feature
-     * @return bool
-     */
-    public function enableFeature(string $feature): bool
-    {
-        if (in_array($feature, $this->supportedFeatures, true)) {
-            return false;
-        }
-        $this->supportedFeatures[] = $feature;
-
-        return true;
     }
 
     public function jsonSerialize(): object
     {
         return (object) [
-            'identifier'        => $this->identifier,
-            'address'           => $this->address,
-            'credentialUuid'    => $this->credentialUuid,
-            'state'             => $this->state,
-            'supportedFeatures' => $this->supportedFeatures,
+            'identifier'     => $this->identifier,
+            'address'        => (string) $this->address,
+            'credentialUuid' => $this->credentialUuid,
+            'state'          => $this->state,
+            'capabilities'   => $this->capabilities,
         ];
     }
 }
