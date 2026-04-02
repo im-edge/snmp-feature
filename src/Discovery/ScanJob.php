@@ -2,28 +2,32 @@
 
 namespace IMEdge\SnmpFeature\Discovery;
 
+use FreeDSx\Asn1\Asn1;
+use FreeDSx\Asn1\Encoder\BerEncoder;
+use FreeDSx\Asn1\Type\AbstractStringType;
+use FreeDSx\Asn1\Type\IntegerType;
+use FreeDSx\Asn1\Type\OctetStringType;
+use FreeDSx\Asn1\Type\SequenceType;
 use IMEdge\IpListGenerator\IpListGenerator;
-use IMEdge\Snmp\IncrementingRequestIdGenerator;
-use IMEdge\SnmpFeature\SnmpCredential;
+use IMEdge\SnmpEngine\Dispatcher\IncrementingRequestIdGenerator;
+use IMEdge\SnmpEngine\SnmpCredential;
+use IMEdge\SnmpPacket\Pdu\GetRequest;
+use IMEdge\SnmpPacket\SnmpVersion;
 use JsonSerializable;
 use Psr\Log\LoggerInterface;
 use Revolt\EventLoop;
 use Revolt\EventLoop\Suspension;
 use RuntimeException;
-use Sop\ASN1\DERData;
-use Sop\ASN1\Type\Constructed\Sequence;
-use Sop\ASN1\Type\Primitive\Integer;
-use Sop\ASN1\Type\Primitive\OctetString;
-use Sop\ASN1\Type\Tagged\ImplicitlyTaggedType;
 use stdClass;
 
 use function Amp\delay;
 
 class ScanJob implements JsonSerializable
 {
-    protected Integer $snmpVersion;
-    protected OctetString $communityString;
-    protected DERData $payload;
+    protected BerEncoder $encoder;
+    protected IntegerType $snmpVersion;
+    protected OctetStringType $communityString;
+    protected AbstractStringType $payload;
     protected int $burst = 250; // 250
     protected float $delay = 0.05; // 0.02
     protected int $cntSent = 0;
@@ -42,9 +46,10 @@ class ScanJob implements JsonSerializable
         protected IncrementingRequestIdGenerator $idGenerator,
         protected LoggerInterface $logger,
     ) {
-        $this->snmpVersion = new Integer(1 /* 1 = v2c */);
-        $this->communityString = new OctetString($this->credential->securityName);
-        $this->payload = (new DiscoveryPayload())->getDERData();
+        $this->encoder = new BerEncoder();
+        $this->snmpVersion = new IntegerType(SnmpVersion::v2c->value);
+        $this->communityString = new OctetStringType($this->credential->securityName);
+        $this->payload = BinaryVarBinds::fromOidList(array_keys(DiscoveryPayload::OID_LIST), $this->encoder);
     }
 
     /**
@@ -113,14 +118,16 @@ class ScanJob implements JsonSerializable
 
     protected function nextPacket(): string
     {
-        $pdu = new ImplicitlyTaggedType(0 /* request */, new Sequence(
-            new Integer($this->idGenerator->getNextId()), // requestId
-            new Integer(0), // errorStatus
-            new Integer(0), // errorIndex
-            $this->payload
+        return $this->encoder->encode(new SequenceType(
+            $this->snmpVersion,
+            $this->communityString,
+            Asn1::context(GetRequest::TAG, new SequenceType(
+                new IntegerType($this->idGenerator->getNextId()),
+                new IntegerType(0),
+                new IntegerType(0),
+                $this->payload,
+            ))
         ));
-        $v2Message = new Sequence($this->snmpVersion, $this->communityString, $pdu);
-        return $v2Message->toDER();
     }
 
     public function hasBeenCompleted(): bool
