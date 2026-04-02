@@ -70,7 +70,7 @@ class SnmpScenarioPoller implements ImedgeWorker
         foreach ($credentials->credentials as $credential) {
             $credNew = $credential->toEngineCredential();
             foreach ($this->targets->targets as $target) {
-                $address = new InternetAddress($target->address->ip, $target->address->port);
+                $address = InternetAddress::fromString($target->address);
                 if ($target->credentialUuid->equals($credential->uuid)) {
                     // $this->logger->debug('Registering ' . $target->identifier);
                     $this->engine->registerClient(
@@ -98,7 +98,7 @@ class SnmpScenarioPoller implements ImedgeWorker
             }
             $credNew = $credential->toEngineCredential();
             // $this->logger->debug('Registering ' . $target->identifier);
-            $address = new InternetAddress($target->address->ip, $target->address->port);
+            $address = InternetAddress::fromString($target->address);
             if ($target->credentialUuid->equals($credential->uuid)) {
                 $this->engine->registerClient(
                     $target->identifier,
