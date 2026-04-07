@@ -76,7 +76,7 @@ class SnmpApi
     }
 
     #[ApiMethod]
-    public function getScenarioDefinitions(): \stdClass
+    public function getScenarioDefinitions(): stdClass
     {
         return $this->runner->scenarioController->jsonRpc->request('snmpScenarioController.getScenarios');
     }
@@ -102,10 +102,6 @@ class SnmpApi
     #[ApiMethod]
     public function setCredentials(SnmpCredentials $credentials): bool
     {
-        foreach ($credentials->credentials as $credential) {
-            $this->logger->notice(sprintf('Got credential %s(%s)', $credential->name, $credential->uuid->toString()));
-        }
-
         $this->runner->setCredentials($credentials);
 
         return true;
