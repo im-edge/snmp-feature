@@ -117,7 +117,7 @@ class SnmpApi
         // 1788 targets -> 180kB
         // {"address":{"ip":"194.244.15.28","port":161},"credentialUuid":"92a9178c-6dee-432c-bc67-1d67776454a5"}]},"target":"730345e8-559b-45f3-b89d-184d866964cf","id":4058410},
         // 170 Bytes per target
-        $this->runner->setTargets($this->appendLabTarget($targets));
+        $this->runner->setTargets($targets);
 
         return true;
     }
