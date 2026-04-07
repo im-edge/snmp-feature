@@ -35,7 +35,7 @@ use function Amp\async;
 class SnmpScenarioPoller implements ImedgeWorker
 {
     public const STREAM_NAME_RESULTS = 'snmp:result';
-    public const STREAM_NAME_TASKS = 'snmp:task';
+    public const STREAM_NAME_TASKS = 'snmp:tasks';
 
     protected RedisClient $client;
     protected RedisSubscriber $subscriber;
