@@ -21,24 +21,24 @@ class PollInterfaceErrors
 
         #[Oid('1.3.6.1.2.1.2.2.1.13')]
         #[Metric('ifInDiscards', MetricDatatype::COUNTER)]
-        public readonly int $ifInDiscards,
+        public readonly ?int $ifInDiscards = null,
 
         #[Oid('1.3.6.1.2.1.2.2.1.14')]
         #[Metric('ifInErrors', MetricDatatype::COUNTER)]
-        public readonly int $ifInErrors,
+        public readonly ?int $ifInErrors = null,
 
         #[Oid('1.3.6.1.2.1.2.2.1.19')]
         #[Metric('ifOutDiscards', MetricDatatype::COUNTER)]
-        public readonly int $ifOutDiscards,
+        public readonly ?int $ifOutDiscards = null,
 
         #[Oid('1.3.6.1.2.1.2.2.1.20')]
         #[Metric('ifOutErrors', MetricDatatype::COUNTER)]
-        public readonly int $ifOutErrors,
+        public readonly ?int $ifOutErrors = null,
 
         // TODO: Check, if in use at all?!
         #[Oid('1.3.6.1.2.1.2.2.1.15')]
         #[Metric('ifInUnknownProtos', MetricDatatype::COUNTER)]
-        public readonly int $ifInUnknownProtos,
+        public readonly ?int $ifInUnknownProtos = null,
     ) {
     }
 }
