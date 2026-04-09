@@ -14,6 +14,6 @@ class ConsistencyHelper
     public static function uuidStringToNumber(string $toString): int
     {
         // Still fit's into positive 64bit number:
-        return hexdec(substr($toString, 0, 15));
+        return hexdec(substr(str_replace('-', '', $toString), 0, 15));
     }
 }
