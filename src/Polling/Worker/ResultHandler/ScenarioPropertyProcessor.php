@@ -74,7 +74,7 @@ class ScenarioPropertyProcessor
         // persist the value for the current row, might be referenced by other properties
         $processed->setValue($name, $value);
         // $this->logger->notice(sprintf('Setting %s to %s', $this->definition->name, var_export($value, true)));
-        $processed->setPhpValue($name, TypeConverter::createNativePhpType($value, $this->definition));
+        $processed->setPhpValue($name, TypeConverter::createNativePhpType($value, $this->definition, $name));
 
         if ($this->definition->dbColumn) {
             if ($hasValue) {
