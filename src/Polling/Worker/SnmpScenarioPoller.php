@@ -175,7 +175,7 @@ class SnmpScenarioPoller implements ImedgeWorker
 
     public function start(): void
     {
-        $this->logger->notice('SNMP Scenario Poller has been started');
+        // $this->logger->notice('SNMP Scenario Poller has been started');
         EventLoop::queue($this->launchSubscription(...));
     }
 
@@ -183,7 +183,7 @@ class SnmpScenarioPoller implements ImedgeWorker
     {
         $this->subscription->unsubscribe();
         $this->subscription = null;
-        $this->logger->notice('SNMP Scenario Poller has been stopped');
+        // $this->logger->notice('SNMP Scenario Poller has been stopped');
     }
 
     public function getApiInstances(): array

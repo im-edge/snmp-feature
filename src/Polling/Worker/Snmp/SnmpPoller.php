@@ -72,12 +72,13 @@ class SnmpPoller implements ImedgeWorker
 
     public function start(): void
     {
-        $this->logger->notice('SNMP Poller has been started');
+        // $this->logger->notice('SNMP Poller has been started');
     }
 
     public function stop(): void
     {
-        $this->logger->notice('SNMP  Poller has been stopped');
+        // Hint: we get killed on stop, so this would not appear
+        // $this->logger->notice('SNMP  Poller has been stopped');
     }
 
     public function getApiInstances(): array

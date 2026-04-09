@@ -81,7 +81,7 @@ class SnmpScenarioResultHandler implements ImedgeWorker
 
     public function start(): void
     {
-        $this->logger->notice('SNMP Scenario Result Handler has been started');
+        // $this->logger->notice('SNMP Scenario Result Handler has been started');
         $this->running = true;
         $this->redis->execute('DEL', SnmpScenarioPoller::STREAM_NAME_RESULTS);
         // TODO: Remember former position instead, or use timeMs-0
@@ -91,7 +91,7 @@ class SnmpScenarioResultHandler implements ImedgeWorker
     public function stop(): void
     {
         $this->running = false;
-        $this->logger->notice('SNMP Scenario Result Handler has been stopped');
+        // $this->logger->notice('SNMP Scenario Result Handler has been stopped');
     }
 
     public function getApiInstances(): array
