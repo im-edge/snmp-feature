@@ -18,8 +18,11 @@ use ValueError;
 
 class TypeConverter
 {
-    public static function createNativePhpType(?VarBindValue $value, ScenarioPropertyDefinition $definition): mixed
-    {
+    public static function createNativePhpType(
+        ?VarBindValue $value,
+        ScenarioPropertyDefinition $definition,
+        string $name
+    ): mixed {
         if ($value === null || $value instanceof NullValue || $value instanceof ContextSpecific) {
             if ($definition->nullable) {
                 return null;
@@ -86,7 +89,11 @@ class TypeConverter
                             $phpValue = false;
                             break;
                         default:
-                            throw new ValueError('%s is not a valid TruthValue', $value->getReadableValue());
+                            throw new ValueError(sprintf(
+                                '"%s" for %s is not a valid TruthValue',
+                                $value->getReadableValue(),
+                                $name,
+                            ));
                     }
                 } else {
                     throw new ValueError(sprintf('Cannot cast %s to boolean', JsonString::encode($value)));
