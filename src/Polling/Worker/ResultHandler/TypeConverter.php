@@ -108,6 +108,10 @@ class TypeConverter
 
     protected static function createUtf8SafeString(string $string): string
     {
+        if (str_starts_with($string, '0x')) {
+            return '0x' . bin2hex($string);
+        }
+
         if (ctype_print($string)) {
             return $string;
         }
