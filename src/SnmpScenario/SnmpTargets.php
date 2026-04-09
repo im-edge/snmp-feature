@@ -2,16 +2,28 @@
 
 namespace IMEdge\SnmpFeature\SnmpScenario;
 
+use Amp\Socket\InternetAddress;
 use IMEdge\Json\JsonSerialization;
+use Ramsey\Uuid\UuidInterface;
 
 class SnmpTargets implements JsonSerialization
 {
+    public array $targets;
     /**
      * @param SnmpTarget[] $targets
      */
     public function __construct(
-        public readonly array $targets = []
+        array $targets = []
     ) {
+        $this->targets = [];
+        foreach ($targets as $target) {
+            $this->add($target);
+        }
+    }
+
+    public function add(SnmpTarget $target): void
+    {
+        $this->targets[$target->identifier] = $target;
     }
 
     public static function fromSerialization($any): SnmpTargets|static
@@ -23,6 +35,17 @@ class SnmpTargets implements JsonSerialization
         }
 
         return new static($targets);
+    }
+
+    public function findForAddress(InternetAddress $address, UuidInterface $credentialUuid): ?SnmpTarget
+    {
+        foreach ($this->targets as $t) {
+            if ($t->address->toString() === $address->toString() && $t->credentialUuid->equals($credentialUuid)) {
+                return $t;
+            }
+        }
+
+        return null;
     }
 
     /**

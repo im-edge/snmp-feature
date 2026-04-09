@@ -62,10 +62,11 @@ class SnmpScenarioController implements ImedgeWorker
         // $this->luaRunner->runScript('pushScenarios', $this->scheduler->xxx());
     }
 
-    protected function pushScenariosSlotsToRedis(): void
+    protected function pushScenariosSlotsToRedis(array $slots): void
     {
-        // Not yet
-        // $this->luaRunner->runScript('pushScenarios', $this->scheduler->xxx());
+        foreach ($slots as $scenario => $targets) {
+            $this->redis->publish(SnmpScenarioPoller::STREAM_NAME_TASKS, $scenario . ':' . $targets);
+        }
     }
 
     #[ApiMethod]
