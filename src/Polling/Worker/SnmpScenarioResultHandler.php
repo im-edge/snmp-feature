@@ -19,6 +19,7 @@ use IMEdge\SnmpFeature\SnmpResponse;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
 use Psr\Log\LoggerInterface;
 use Revolt\EventLoop;
+use Throwable;
 
 #[ApiNamespace('snmpScenarioResultHandler')]
 class SnmpScenarioResultHandler implements ImedgeWorker
@@ -112,7 +113,7 @@ class SnmpScenarioResultHandler implements ImedgeWorker
         foreach ($streamResults as $streamResult) {
             try {
                 $this->processStreamResult($streamResult);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $this->logger->error(
                     'Processing streamed SNMP result failed: ' . $e->getMessage() . $e->getFile() . $e->getLine()
                 );
@@ -152,9 +153,22 @@ class SnmpScenarioResultHandler implements ImedgeWorker
             $this->logger->notice('Ignoring result for unknown target: ' . $properties->target);
             return;
         }
-        $this->scenarioProcessors[$scenario->uuid->toString()]->processResponse(
-            SnmpResponse::fromSerialization(JsonString::decode($properties->response)),
-            $target
-        );
+        try {
+            $this->scenarioProcessors[$scenario->uuid->toString()]->processResponse(
+                SnmpResponse::fromSerialization(JsonString::decode($properties->response)),
+                $target
+            );
+        } catch (Throwable $e) {
+            // We probably need the line before streamOffset:
+            // XREVRANGE db-stream-xxx 1775765408216-13 - COUNT 1
+            $this->logger->error(sprintf(
+                'Stream result processing error for %s at %s[%s]: %s',
+                $scenario->name,
+                SnmpScenarioPoller::STREAM_NAME_RESULTS,
+                $this->streamOffset,
+                $e->getMessage()
+            ));
+            throw $e;
+        }
     }
 }
