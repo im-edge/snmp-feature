@@ -97,7 +97,6 @@ class SnmpPoller implements ImedgeWorker
                 continue;
             }
             $credNew = $credential->toEngineCredential();
-            $this->logger->notice('Registering ' . $target->identifier);
             $address = InternetAddress::fromString($target->address);
             if ($target->credentialUuid->equals($credential->uuid)) {
                 $this->engine->registerClient($target->identifier, $address, $credNew);
@@ -117,7 +116,6 @@ class SnmpPoller implements ImedgeWorker
             foreach ($this->targets->targets as $target) {
                 $address = InternetAddress::fromString($target->address);
                 if ($target->credentialUuid->equals($credential->uuid)) {
-                    $this->logger->notice('Registering ' . $target->identifier);
                     $this->engine->registerClient($target->identifier, $address, $credNew);
                 }
             }
