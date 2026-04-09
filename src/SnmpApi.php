@@ -46,6 +46,7 @@ class SnmpApi
         string $name,
         ?UuidInterface $deviceUuid = null,
     ): SnmpResponse {
+        $this->failIfShuttingDown();
         return $this->getScenarioNew($address, $name);
     }
 
@@ -55,6 +56,7 @@ class SnmpApi
         UuidInterface $deviceUuid,
         ?int $delay = null,
     ): bool {
+        $this->failIfShuttingDown();
         return $this->runner->scenarioController->jsonRpc->request('snmpScenarioController.triggerScenarioByName', [
             $name,
             $deviceUuid,
@@ -78,6 +80,7 @@ class SnmpApi
     #[ApiMethod]
     public function getScenarioDefinitions(): stdClass
     {
+        $this->failIfShuttingDown();
         return $this->runner->scenarioController->jsonRpc->request('snmpScenarioController.getScenarios');
     }
 
@@ -96,12 +99,14 @@ class SnmpApi
     #[ApiMethod]
     public function getKnownTargetsHealth(): KnownTargetsHealth
     {
+        $this->failIfShuttingDown();
         return $this->runner->health;
     }
 
     #[ApiMethod]
     public function setCredentials(SnmpCredentials $credentials): bool
     {
+        $this->failIfShuttingDown();
         $this->runner->setCredentials($credentials);
 
         return true;
@@ -114,6 +119,7 @@ class SnmpApi
     #[ApiMethod]
     public function setKnownTargets(SnmpTargets $targets): bool
     {
+        $this->failIfShuttingDown();
         // 1788 targets -> 180kB
         // {"address":{"ip":"194.244.15.28","port":161},"credentialUuid":"92a9178c-6dee-432c-bc67-1d67776454a5"}]},"target":"730345e8-559b-45f3-b89d-184d866964cf","id":4058410},
         // 170 Bytes per target
@@ -128,6 +134,7 @@ class SnmpApi
         InternetAddress $address,
         object $oidList,
     ): SnmpResponse {
+        $this->failIfShuttingDown();
         $community = $this->runner->credentials->requireCredential($credentialUuid)->securityName;
         $start = hrtime(true);
         try {
@@ -149,6 +156,7 @@ class SnmpApi
         ?int $limit = null,
         ?string $nextOid = null
     ): SnmpResponse {
+        $this->failIfShuttingDown();
         $community = $this->runner->credentials->requireCredential($credentialUuid)->securityName;
         $start = hrtime(true);
         try {
@@ -168,6 +176,7 @@ class SnmpApi
     #[ApiMethod]
     public function scanRanges(UuidInterface $credentialUuid, string $generatorClass, Settings $settings): int
     {
+        $this->failIfShuttingDown();
         $credential = $this->runner->credentials->requireCredential($credentialUuid);
 
         $sender = $this->runner->discoverySender;
@@ -194,12 +203,14 @@ class SnmpApi
     #[ApiMethod]
     public function getDiscoveryJobs(): stdClass
     {
+        $this->failIfShuttingDown();
         return $this->runner->discoverySender->jsonRpc->request('snmpDiscoverySender.getJobs');
     }
 
     #[ApiMethod]
     public function getDiscoveryJobResults(int $jobId): stdClass
     {
+        $this->failIfShuttingDown();
         return $this->runner->discoverySender->jsonRpc->request('snmpDiscoverySender.getResults', [
             $jobId
         ]);
@@ -208,6 +219,7 @@ class SnmpApi
     #[ApiMethod]
     public function streamDiscoveryJobResults(int $jobId, int $blockMs, string $offset = '0-0'): stdClass
     {
+        $this->failIfShuttingDown();
         return $this->runner->discoverySender->jsonRpc->request('snmpDiscoverySender.streamResults', [
             $jobId,
             $blockMs,
@@ -218,6 +230,7 @@ class SnmpApi
     #[ApiMethod]
     public function deleteDiscoveryJobResults(int $jobId): bool
     {
+        $this->failIfShuttingDown();
         return $this->runner->discoverySender->jsonRpc->request('snmpDiscoverySender.deleteJob', [
             $jobId
         ]);
@@ -226,8 +239,16 @@ class SnmpApi
     #[ApiMethod]
     public function stopDiscoveryJob(int $jobId): bool
     {
+        $this->failIfShuttingDown();
         return $this->runner->discoverySender->jsonRpc->request('snmpDiscoverySender.stopJob', [
             $jobId
         ]);
+    }
+
+    protected function failIfShuttingDown(): void
+    {
+        if ($this->shuttingDown) {
+            throw new RuntimeException('Node is shutting down');
+        }
     }
 }
