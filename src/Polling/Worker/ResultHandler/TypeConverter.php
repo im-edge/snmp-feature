@@ -82,6 +82,9 @@ class TypeConverter
             case ScenarioPropertyType::TYPE_BOOLEAN:
                 if ($value instanceof Integer32 || $value instanceof Unsigned32) {
                     switch ($value->getReadableValue()) {
+                        case 0:
+                            $phpValue = null; // Cisco, got 0 for 1.3.6.1.2.1.47.1.1.1.1.16
+                            break;
                         case 1:
                             $phpValue = true;
                             break;
