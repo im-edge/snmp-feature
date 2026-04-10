@@ -39,7 +39,7 @@ class SnmpScenarioController implements ImedgeWorker
         $this->luaRunner = new LuaScriptRunner($this->redis, dirname(__DIR__, 3) . '/lua', $this->logger);
         // TODO: ship from DB
         $this->scenarios = ScenarioDefinitionLoader::fromJsonFile(dirname(__DIR__, 3) . '/data/scenarios.json');
-        $this->scheduler = new SnmpScenarioScheduler();
+        $this->scheduler = new SnmpScenarioScheduler($this->logger);
         $this->scheduler->on(SnmpScenarioScheduler::ON_CHANGES, $this->pushScenariosToRedis(...));
         $this->scheduler->on(SnmpScenarioScheduler::ON_SLOTS, $this->pushScenariosSlotsToRedis(...));
         foreach ($this->scenarios as $scenario) {

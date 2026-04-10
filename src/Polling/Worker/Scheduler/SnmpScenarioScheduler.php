@@ -13,6 +13,7 @@ use IMEdge\SnmpFeature\SnmpScenario\SnmpTarget;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
 use IMEdge\SnmpFeature\SnmpScenario\TargetState;
 use InvalidArgumentException;
+use Psr\Log\LoggerInterface;
 use Revolt\EventLoop;
 use RuntimeException;
 
@@ -43,8 +44,9 @@ class SnmpScenarioScheduler implements EventEmitterInterface
     /** @var array<string, array<int, string>> */
     protected array $slotTargets = [];
 
-    public function __construct()
-    {
+    public function __construct(
+        protected LoggerInterface $logger
+    ) {
         $this->targets = new SnmpTargets();
         $this->initializeSlotTicker();
         $this->redis = ImedgeRedis::client('snmp/scenarioScheduler');
@@ -152,6 +154,7 @@ class SnmpScenarioScheduler implements EventEmitterInterface
     {
         if ($this->hasChanges) {
             $this->hasChanges = false;
+            // $this->logger->notice('ScenarioScheduler notifies changes');
             $this->slotTargets = $this->calculateSlots();
             $this->emit(self::ON_CHANGES);
         }
@@ -253,11 +256,14 @@ class SnmpScenarioScheduler implements EventEmitterInterface
     {
         $targetKey = (string) $target->address;
         if ($target->wants($scenario)) {
+            // $this->logger->debug(sprintf("Target %s wants scenario %s", $target->address, $scenario->name));
             $scenarioKey = $scenario->uuid->toString();
             if (!$this->hasChanges && !isset($this->scenarioTargets[$scenarioKey][$targetKey])) {
                 $this->hasChanges = true;
             }
             $this->scenarioTargets[$scenarioKey][$targetKey] = $target; // it's a reference, should be fine
+        } else {
+            // $this->logger->debug(sprintf("Target %s does not want scenario %s", $target->address, $scenario->name));
         }
     }
 
