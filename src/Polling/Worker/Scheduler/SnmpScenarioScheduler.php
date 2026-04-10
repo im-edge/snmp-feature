@@ -176,6 +176,7 @@ class SnmpScenarioScheduler implements EventEmitterInterface
             'entity',
             'entityIfMap',
             'interfaceConfig',
+            'sensors',
         ];
         if (! in_array($scenario->name, $allowed)) {
             return;
