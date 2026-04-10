@@ -17,6 +17,7 @@ use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\UuidInterface;
 use Revolt\EventLoop;
+use RuntimeException;
 
 #[ApiNamespace('snmpScenarioController')]
 class SnmpScenarioController implements ImedgeWorker
@@ -86,7 +87,7 @@ class SnmpScenarioController implements ImedgeWorker
     #[ApiMethod]
     public function setScenarios(array $scenarios): bool
     {
-        return true;
+        return throw new RuntimeException('not yet');
     }
 
     #[ApiMethod]
