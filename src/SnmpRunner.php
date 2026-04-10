@@ -2,9 +2,11 @@
 
 namespace IMEdge\SnmpFeature;
 
+use Amp\Socket\InternetAddress;
 use IMEdge\Config\Settings;
 use IMEdge\Inventory\NodeIdentifier;
 use IMEdge\Node\Events;
+use IMEdge\Node\Features;
 use IMEdge\Node\Services;
 use IMEdge\Node\Worker\WorkerInstance;
 use IMEdge\Node\Worker\WorkerInstances;
@@ -15,9 +17,11 @@ use IMEdge\SnmpFeature\Polling\Worker\SnmpScenarioController;
 use IMEdge\SnmpFeature\Polling\Worker\SnmpScenarioPoller;
 use IMEdge\SnmpFeature\Polling\Worker\SnmpScenarioResultHandler;
 use IMEdge\SnmpFeature\SnmpScenario\KnownTargetsHealth;
+use IMEdge\SnmpFeature\SnmpScenario\SnmpTarget;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
+use Ramsey\Uuid\UuidInterface;
 use Revolt\EventLoop;
 
 class SnmpRunner
@@ -61,6 +65,11 @@ class SnmpRunner
         $this->shuttingDown = true;
         $this->stopDiscoveryWorkers();
         $this->stopScenarioWorkers();
+    }
+
+    public function getOptionalTargetForAddress(InternetAddress $address, UuidInterface $credentialUuid): ?SnmpTarget
+    {
+        return $this->targets->findForAddress($address, $credentialUuid);
     }
 
     public function setTargets(SnmpTargets $targets): void
