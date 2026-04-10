@@ -23,6 +23,7 @@ use IMEdge\SnmpFeature\SnmpCredentials;
 use IMEdge\SnmpFeature\SnmpResponse;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTarget;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
+use IMEdge\SnmpFeature\SnmpScenario\TargetState;
 use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\UuidInterface;
@@ -251,6 +252,10 @@ class SnmpScenarioPoller implements ImedgeWorker
     {
         foreach ($this->parseTaskMessage($message) as [$scenario, $targets]) {
             foreach ($targets as $target) {
+                // TODO: temporarily avoids too many requests. We need better reachability/health logic
+                if ($scenario->name !== 'sysInfo' && $target->state !== TargetState::REACHABLE) {
+                    continue;
+                }
                 $this->logger->debug(sprintf("Polling %s on %s (task triggered)", $scenario->name, $target->address));
                 $this->runScenarioAndShip($scenario, $target);
             }
@@ -296,13 +301,17 @@ class SnmpScenarioPoller implements ImedgeWorker
         return $tasks;
     }
 
-    protected function runScenarioAndShip(ScenarioDefinition $scenario, $target): void
+    protected function runScenarioAndShip(ScenarioDefinition $scenario, SnmpTarget $target): void
     {
         async(function () use ($scenario, $target) {
             try {
                 $this->activeTasks++;
                 $this->shipResult($target, $scenario, $this->pollScenarioDefinition($target, $scenario));
+                $target->state = TargetState::REACHABLE;
             } catch (Throwable $e) {
+                if ($scenario->name === 'sysInfo') {
+                    $target->state = TargetState::FAILING;
+                }
                 $this->logger->error(sprintf(
                     'Polling %s on %s failed: %s',
                     $scenario->name,
