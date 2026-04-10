@@ -21,6 +21,8 @@ use Psr\Log\LoggerInterface;
 use Revolt\EventLoop;
 use Throwable;
 
+use function Amp\delay;
+
 #[ApiNamespace('snmpScenarioResultHandler')]
 class SnmpScenarioResultHandler implements ImedgeWorker
 {
@@ -82,7 +84,16 @@ class SnmpScenarioResultHandler implements ImedgeWorker
 
     public function start(): void
     {
-        // $this->logger->notice('SNMP Scenario Result Handler has been started');
+        $succeeded = false;
+        while (!$succeeded) {
+            try {
+                $this->redis->ping();
+                $succeeded = true;
+            } catch (Throwable) {
+                delay(0.3);
+            }
+        }
+        $this->logger->notice(sprintf('%s is connected to %s', 'SnmpScenarioResultHandler', 'Redis/ValKey'));
         $this->running = true;
         $this->redis->execute('DEL', SnmpScenarioPoller::STREAM_NAME_RESULTS);
         // TODO: Remember former position instead, or use timeMs-0
