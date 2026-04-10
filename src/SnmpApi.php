@@ -131,23 +131,65 @@ class SnmpApi
     }
 
     #[ApiMethod]
+    public function getNextNew(UuidInterface $target, array $oids): Response
+    {
+        $this->failIfShuttingDown();
+        $response = $this->runner->snmpPoller->jsonRpc->request('snmpPoller.getNext', [
+            $target,
+            $oids
+        ]);
+
+        return new Response(VarBindList::fromSerialization($response->varBinds), $response->requestId);
+    }
+
+    #[ApiMethod]
+    public function getBulkNew(
+        UuidInterface $target,
+        array $oids,
+        int $maxRepetitions = 10,
+        int $nonRepeaters = 0
+    ): Response {
+        $this->failIfShuttingDown();
+        $response = $this->runner->snmpPoller->jsonRpc->request('snmpPoller.getBulk', [
+            $target,
+            $oids,
+            $maxRepetitions,
+            $nonRepeaters
+        ]);
+
+        return new Response(VarBindList::fromSerialization($response->varBinds), $response->requestId);
+    }
+
+    #[ApiMethod]
     public function get(
         UuidInterface $credentialUuid,
         InternetAddress $address,
         object $oidList,
     ): SnmpResponse {
         $this->failIfShuttingDown();
-        $community = $this->runner->credentials->requireCredential($credentialUuid)->securityName;
+        $target = $this->runner->getOptionalTargetForAddress($address, $credentialUuid);
         $start = hrtime(true);
         try {
             return SnmpResponse::success(
                 $address,
                 $start,
-                $this->socket->get((array) $oidList, $address, $community),
+                $this->getFromTarget($target->identifier, (array) $oidList)
             );
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
             return SnmpResponse::failure($address, $start, $e);
         }
+    }
+
+    #[ApiMethod]
+    public function getFromTarget(string $targetIdentifier, array $oids): Response
+    {
+        $this->failIfShuttingDown();
+        $response = $this->runner->snmpPoller->jsonRpc->request('snmpPoller.get', [
+            $targetIdentifier,
+            $oids
+        ]);
+
+        return new Response(VarBindList::fromSerialization($response->varBinds), $response->requestId);
     }
 
     #[ApiMethod]
