@@ -15,7 +15,7 @@ enum InterfaceStatusStp: int implements EnumInterface
     public function getLabel(): string
     {
         return match ($this) {
-            self::DISABLED   => 'unknown',
+            self::DISABLED   => 'disabled',
             self::BLOCKING   => 'blocking',
             self::LISTENING  => 'listening',
             self::LEARNING   => 'learning',
