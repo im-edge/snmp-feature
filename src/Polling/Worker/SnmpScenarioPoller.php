@@ -153,25 +153,7 @@ class SnmpScenarioPoller implements ImedgeWorker
         $scenario = $this->requireScenarioByName($scenarioName);
         $this->logger->notice(sprintf("Polling %s on %s (on demand)", $scenario->name, $target->address));
 
-        $response = $this->pollScenarioDefinition($target, $scenario);
-        $result = SnmpTableHelper::flipTableResult($response->result);
-        foreach ($result as $instanceKey => $varBinds) {
-            if ($scenario->snmpTableIndexes) {
-                SnmpTableHelper::appendTableIndexesToVarBindList(
-                    $instanceKey,
-                    $varBinds,
-                    $scenario->snmpTableIndexes
-                );
-            }
-        }
-
-        return new SnmpResponse(
-            $response->success,
-            $response->source,
-            $result,
-            $response->errorMessage,
-            $response->duration
-        );
+        return $this->pollScenarioDefinition($target, $scenario);
     }
 
     public function start(): void
