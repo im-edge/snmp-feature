@@ -20,15 +20,12 @@ use stdClass;
 #[ApiNamespace('snmp')]
 class SnmpApi
 {
-    protected ?SnmpSocket $socket;
     protected bool $shuttingDown = false;
 
     public function __construct(
         protected readonly SnmpRunner $runner,
-        protected readonly LoggerInterface $logger
+        protected readonly LoggerInterface $logger,
     ) {
-        // TODO: v6 socket, socket pool?
-        $this->socket = new SnmpSocket();
     }
 
     public function shutdown(): void
@@ -161,6 +158,7 @@ class SnmpApi
         ?int $limit = null,
         ?string $nextOid = null
     ): SnmpResponse {
+        throw new RuntimeException('Temporarily disabled');
         $this->failIfShuttingDown();
         $community = $this->runner->credentials->requireCredential($credentialUuid)->securityName;
         $start = hrtime(true);
