@@ -12,11 +12,11 @@
   "autoload": {
     "psr-4": {
       "IMEdge\\SnmpFeature\\": "src"
-    },
-    "autoload-dev": {
-      "psr-4": {
-        "IMEdge\\Tests\\SnmpFeature\\": "tests/"
-      }
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "IMEdge\\Tests\\SnmpFeature\\": "tests/"
     }
   },
   "require": {
