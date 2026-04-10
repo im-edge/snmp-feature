@@ -13,6 +13,9 @@ use IMEdge\SnmpPacket\Usm\SnmpPrivProtocol as EngineSnmpPrivProtocol;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 
+/**
+ * Used for RPC only, as Credential doesn't carry UUID otherwise
+ */
 class SnmpCredential implements JsonSerialization
 {
     protected static array $propertyToSerialized = [
@@ -28,7 +31,7 @@ class SnmpCredential implements JsonSerialization
     ];
     protected static ?array $serializedToProperty = null;
 
-    public function __construct(
+    protected function __construct(
         public readonly ?UuidInterface $uuid = null,
         public readonly ?string $name = null,
         public readonly ?SnmpVersion $version = null,
@@ -46,7 +49,11 @@ class SnmpCredential implements JsonSerialization
         $any = self::unSerializeKeys($any);
         // PHPstan will complain!
         if (isset($any['uuid'])) {
-            $any['uuid'] = Uuid::fromString($any['uuid']);
+            if (strlen($any['uuid']) === 16) { // when used from inventory, from DB
+                $any['uuid'] = Uuid::fromBytes($any['uuid']);
+            } else {
+                $any['uuid'] = Uuid::fromString($any['uuid']);
+            }
         }
         $any['version'] = SnmpVersion::from($any['version']);
         if (isset($any['securityLevel'])) {

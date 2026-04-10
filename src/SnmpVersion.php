@@ -2,6 +2,9 @@
 
 namespace IMEdge\SnmpFeature;
 
+/**
+ * Used for RPC only
+ */
 enum SnmpVersion: string
 {
     case v1  = '1';
