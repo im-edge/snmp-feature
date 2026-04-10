@@ -12,6 +12,11 @@
   "autoload": {
     "psr-4": {
       "IMEdge\\SnmpFeature\\": "src"
+    },
+    "autoload-dev": {
+      "psr-4": {
+        "IMEdge\\Tests\\SnmpFeature\\": "tests/"
+      }
     }
   },
   "require": {
@@ -24,8 +29,7 @@
     "ext-posix": "*",
     "ext-redis": "*",
     "ext-sockets": "*",
-    "imedge/node-provided-libs": "^0.12",
-    "imedge/snmp": ">=0.4",
+    "imedge/node-provided-libs": "^0.20-rc",
     "imedge/snmp-engine": "^0.1"
   },
   "require-dev": {
