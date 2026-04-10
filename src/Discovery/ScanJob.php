@@ -58,6 +58,10 @@ class ScanJob implements JsonSerializable
      */
     public function run($socket): void
     {
+        // Testing IPC anomalies
+        // if ($socket instanceof \Socket) {
+        //     $socket = socket_export_stream($socket);
+        // }
         $this->socket = $socket;
         $this->status = ScanJobStatus::RUNNING;
         $this->suspension = EventLoop::getSuspension();

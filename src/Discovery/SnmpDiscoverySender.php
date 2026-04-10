@@ -61,7 +61,12 @@ class SnmpDiscoverySender implements ImedgeWorker
         }
         $socket = $this->socketReceiver->acceptRemoteSocket();
         if (socket_getsockname($socket, $address, $port)) {
-            $this->logger->notice("SNMP Discovery sender got a Socket on $address:$port");
+            $this->logger->debug("SNMP Discovery sender got a Socket on $address:$port");
+            // $type = get_debug_type($socket);
+            // $this->logger->notice("SNMP Discovery sender got a Socket ($type) on $address:$port");
+            // if ($socket instanceof Socket) {
+            //     $socket = socket_export_stream($socket);
+            // }
             $this->sockets[$port] = $socket;
         } else {
             $this->logger->error('Failed to retrieve socket');
