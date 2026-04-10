@@ -40,8 +40,8 @@ class PollInterfaceStatus
         // #[Oid('1.3.6.1.2.1.2.2.1.9')]
         // public readonly ?DateTime $ifLastChange; // TODO: reliable time-tick diff
         //
-        #[DbColumn('status_duplex')]
-        public readonly ?InterfaceStatusDuplex $statusDuplex = null,
+//        #[DbColumn('status_duplex')]
+//         public readonly ?InterfaceStatusDuplex $statusDuplex = null,
         //
         #[DbColumn('status_stp')]
         public readonly ?InterfaceStatusStp $statusStp = null,
@@ -67,9 +67,9 @@ class PollInterfaceStatus
         #[DbColumn('stp_designated_port')]
         public readonly ?string $stpDesignatedPort = null,
         //
-        #[Oid('1.3.6.1.2.1.17.2.15.1.10')]
-        #[DbColumn('stp_forward_transitions')]
-        public readonly ?string $stpForwardTransitions = null,
+//        #[Oid('1.3.6.1.2.1.17.2.15.1.10')]
+//        #[DbColumn('stp_forward_transitions')]
+//        public readonly ?string $stpForwardTransitions = null,
         //
         /**
          * Promiscuous mode.
