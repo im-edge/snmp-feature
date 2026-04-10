@@ -46,7 +46,17 @@ class SnmpDiscoveryReceiver implements ImedgeWorker
         $this->servers[$udpPort] = $socket;
         $this->credentials[$udpPort] = $credentialUuid;
         $this->handles[$udpPort] = EventLoop::onReadable($socket, function () use ($udpPort) {
-            $data = stream_socket_recvfrom($this->servers[$udpPort], self::MAX_UDP_PAYLOAD, STREAM_OOB, $address);
+            try {
+                $data = stream_socket_recvfrom(
+                    $this->servers[$udpPort],
+                    self::MAX_UDP_PAYLOAD,
+                    STREAM_OOB,
+                    $address
+                );
+            } catch (\Throwable $e) {
+                $this->logger->error('Cannot recv from socket: ' . $e->getMessage());
+                return;
+            }
             $this->redis->execute(
                 'HSET',
                 self::REDIS_PREFIX . "$udpPort/candidates",
