@@ -12,8 +12,8 @@ use IMEdge\RedisUtils\RedisResult;
 use IMEdge\RpcApi\ApiMethod;
 use IMEdge\RpcApi\ApiNamespace;
 use IMEdge\SnmpEngine\Dispatcher\IncrementingRequestIdGenerator;
-use IMEdge\SnmpEngine\SnmpCredential;
 use IMEdge\SnmpFeature\Redis\ImedgeRedis;
+use IMEdge\SnmpFeature\SnmpCredential;
 use IMEdge\SnmpPacket\Message\SnmpMessage;
 use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
@@ -87,8 +87,7 @@ class SnmpDiscoverySender implements ImedgeWorker
         }
         $generator = new $generatorClass($settings);
         $port = $this->launchWithReceivedSocket();
-
-        $job = new ScanJob($credential, $generator, $this->idGenerator, $this->logger);
+        $job = new ScanJob($credential->toEngineCredential(), $generator, $this->idGenerator, $this->logger);
         $this->redis->execute('HSET', self::REDIS_PREFIX . 'jobs', $port, JsonString::encode($job));
         $this->jobs[$port] = $job;
         EventLoop::queue(function () use ($job, $port) {
