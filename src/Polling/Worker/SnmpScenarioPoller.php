@@ -66,7 +66,7 @@ class SnmpScenarioPoller implements ImedgeWorker
     public function setCredentials(SnmpCredentials $credentials): bool
     {
         $this->credentials = $credentials;
-        $this->logger->notice('Poller got credentials');
+        $this->logger->notice('ScenarioPoller got credentials');
         foreach ($credentials->credentials as $credential) {
             $credNew = $credential->toEngineCredential();
             foreach ($this->targets->targets as $target) {
@@ -217,8 +217,6 @@ class SnmpScenarioPoller implements ImedgeWorker
         foreach ($this->targets->targets as $target) {
             if ($target->address->toString() === $addressDiff) {
                 return $target;
-            } else {
-                $this->logger->notice(sprintf('%s != %s', $addressDiff, $target->address->toString()));
             }
         }
 
