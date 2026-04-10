@@ -291,15 +291,24 @@ class SnmpScenarioPoller implements ImedgeWorker
                 $this->shipResult($target, $scenario, $this->pollScenarioDefinition($target, $scenario));
                 $target->state = TargetState::REACHABLE;
             } catch (Throwable $e) {
-                if ($scenario->name === 'sysInfo') {
-                    $target->state = TargetState::FAILING;
+                if ($target->state !== TargetState::FAILING) {
+                    if ($scenario->name === 'sysInfo') {
+                        $target->state = TargetState::FAILING;
+                        $this->logger->error(sprintf(
+                            'Polling %s on %s failed, disabling non-health checks: %s',
+                            $scenario->name,
+                            $target->address,
+                            $e->getMessage()
+                        ));
+                    } else {
+                        $this->logger->error(sprintf(
+                            'Polling %s on %s failed: %s',
+                            $scenario->name,
+                            $target->address,
+                            $e->getMessage()
+                        ));
+                    }
                 }
-                $this->logger->error(sprintf(
-                    'Polling %s on %s failed: %s',
-                    $scenario->name,
-                    $target->address,
-                    $e->getMessage()
-                ));
             }
             $this->activeTasks--;
         });
