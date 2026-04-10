@@ -42,7 +42,7 @@ class SnmpScenarioScheduler implements EventEmitterInterface
     protected RedisClient $redis;
     protected int $bootTimeMs;
     /** @var array<string, array<int, string>> */
-    protected array $slotTargets = [];
+    public array $slotTargets = [];
 
     public function __construct(
         protected LoggerInterface $logger

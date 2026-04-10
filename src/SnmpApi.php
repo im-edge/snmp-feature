@@ -84,6 +84,13 @@ class SnmpApi
         return $this->runner->scenarioController->jsonRpc->request('snmpScenarioController.getScenarios');
     }
 
+    #[ApiMethod]
+    public function getSchedulerSlotTargets(): stdClass
+    {
+        $this->failIfShuttingDown();
+        return $this->runner->scenarioController->jsonRpc->request('snmpScenarioController.getSchedulerSlotTargets');
+    }
+
     protected function getScenarioNew(
         InternetAddress $address,
         string $name,
