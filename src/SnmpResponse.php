@@ -17,19 +17,19 @@ class SnmpResponse implements JsonSerialization
     ) {
     }
 
-    public static function success(InternetAddress $source, int $startTime, mixed $result): SnmpResponse
+    public static function success(InternetAddress $source, float $startTime, mixed $result): SnmpResponse
     {
         return new SnmpResponse(
             success:  true,
             source:   $source,
             result:   $result,
-            duration: hrtime(true) - $startTime
+            duration: (int) (hrtime(true) - $startTime)
         );
     }
 
-    public static function failure(InternetAddress $source, int $startTime, $reason): SnmpResponse
+    public static function failure(InternetAddress $source, float $startTime, $reason): SnmpResponse
     {
-        $duration = hrtime(true) - $startTime;
+        $duration = (int) (hrtime(true) - $startTime);
         if ($reason instanceof Throwable) {
             $reason = $reason->getMessage();
         }
