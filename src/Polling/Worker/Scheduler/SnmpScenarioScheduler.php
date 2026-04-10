@@ -263,7 +263,11 @@ class SnmpScenarioScheduler implements EventEmitterInterface
 
     protected function removeTargetFromAllScenarios(string $targetKey): void
     {
-        foreach ($this->scenarioTargets as &$scenarioTargets) { // key is scenarioName
+        foreach ($this->scenarioTargets as $key => &$scenarioTargets) { // key is scenario uuid
+            if ($this->scenarios[$key]->name === 'sysInfo') {
+                continue;
+            }
+            // $this->logger->notice("Removing $targetKey from $key");
             if (!$this->hasChanges && isset($scenarioTargets[$targetKey])) {
                 $this->hasChanges = true;
             }
