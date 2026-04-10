@@ -241,10 +241,17 @@ class SnmpScenarioScheduler implements EventEmitterInterface
 
     protected function recheckTarget(SnmpTarget $target): void
     {
-        if ($target->state !== TargetState::REACHABLE) {
+        if (
+            $target->state !== TargetState::REACHABLE
+            // Workaround, does not solve the problem:
+            && $target->state !== TargetState::PENDING
+        ) {
             // TODO: do not skip keep-alive scenario(s)
             $this->removeTargetFromAllScenarios((string) $target->address);
-            return;
+            // Alternative, with only REACHABLE above - also not a final fix:
+            // if ($target->state !== TargetState::PENDING) {
+            //     return;
+            // }
         }
 
         foreach ($this->scenarios as $scenario) {
