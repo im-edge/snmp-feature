@@ -134,17 +134,23 @@ class SnmpRunner
         $worker = $this->workerInstances->launchWorker('snmp-scenario-result-handler', Uuid::uuid4());
         $worker->run(SnmpScenarioResultHandler::class);
         $this->scenarioResultHandler = $worker;
-
-        if ($pathToMetricStore = $this->settings->get('metricStore')) {
-            $this->scenarioResultHandler->jsonRpc->request(
-                'snmpScenarioResultHandler.setMetricStorePath',
-                [$pathToMetricStore]
-            );
-        } else {
-            $this->logger->notice('SNMP feature is running w/o metric store');
-        }
-
         $this->logger->debug('Launched SNMP/Scenario Workers');
+    }
+
+    public function onFeaturesReady(Features $features): void
+    {
+        foreach ($features->getLoaded() as $feature) {
+            if ($feature->name === 'metrics') {
+                if ($pathToMetricStore = $this->settings->get('metricStore')) {
+                    $this->scenarioResultHandler->jsonRpc->request(
+                        'snmpScenarioResultHandler.setMetricStorePath',
+                        [$pathToMetricStore]
+                    );
+                } else {
+                    $this->logger->notice('SNMP feature is running w/o metric store');
+                }
+            }
+        }
     }
 
     protected function stopScenarioWorkers(): void

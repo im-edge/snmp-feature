@@ -5,7 +5,6 @@
  *
  * @var Feature $this
  */
-
 use IMEdge\Node\Feature;
 use IMEdge\SnmpFeature\SnmpApi;
 use IMEdge\SnmpFeature\SnmpRunner;
@@ -22,4 +21,5 @@ $api = new SnmpApi($runner, $this->logger);
 $this->registerRpcApi($api);
 $this->onShutdown($api->shutdown(...));
 $this->onShutdown($runner->stop(...));
+$this->onFeaturesReady($runner->onFeaturesReady(...));
 $runner->run();
