@@ -57,6 +57,12 @@ class SnmpScenarioController implements ImedgeWorker
         return $this->scenarios;
     }
 
+    #[ApiMethod]
+    public function getSchedulerSlotTargets(): \stdClass
+    {
+        return (object) $this->scheduler->slotTargets;
+    }
+
     protected function pushScenariosToRedis(): void
     {
         // Not yet
