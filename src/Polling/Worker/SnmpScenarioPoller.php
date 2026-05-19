@@ -11,6 +11,7 @@ use IMEdge\Config\Settings;
 use IMEdge\Inventory\NodeIdentifier;
 use IMEdge\Json\JsonString;
 use IMEdge\Node\ImedgeWorker;
+use IMEdge\RedisTables\RedisTables;
 use IMEdge\RpcApi\ApiMethod;
 use IMEdge\RpcApi\ApiNamespace;
 use IMEdge\SnmpEngine\Dispatcher\SnmpDispatcher;
@@ -47,6 +48,7 @@ class SnmpScenarioPoller implements ImedgeWorker
     protected RedisClient $redisClient;
     protected SnmpPoller $engine;
     protected int $activeTasks = 0;
+    protected RedisTables $redisTables;
 
     public function __construct(
         protected readonly Settings $settings,
@@ -58,6 +60,11 @@ class SnmpScenarioPoller implements ImedgeWorker
         $this->credentials = new SnmpCredentials([]);
         $this->subscriber = ImedgeRedis::subscriber('snmpScenarioPoller/poller');
         $this->redisClient = ImedgeRedis::client('snmpScenarioPoller/resultShipper');
+        $this->redisTables = new RedisTables(
+            $this->nodeIdentifier->uuid->toString(),
+            $this->redisClient,
+            $this->logger
+        );
         // TODO: ship from DB
         $this->scenarios = ScenarioDefinitionLoader::fromJsonFile(dirname(__DIR__, 3) . '/data/scenarios.json');
     }
@@ -232,7 +239,7 @@ class SnmpScenarioPoller implements ImedgeWorker
     protected function processTaskMessage(string $message): void
     {
         foreach (TaskMessage::parse($message, $this->logger, $this->targets, $this->scenarios)->tasks as $task) {
-            foreach ($task->targets as $target) {
+            foreach ($task->targets->targets as $target) {
                 // TODO: temporarily avoids too many requests. We need better reachability/health logic
                 if ($task->scenario->name !== 'sysInfo' && $target->state !== TargetState::REACHABLE) {
                     continue;
@@ -253,7 +260,13 @@ class SnmpScenarioPoller implements ImedgeWorker
             try {
                 $this->activeTasks++;
                 $this->shipResult($target, $scenario, $this->pollScenarioDefinition($target, $scenario));
-                $target->state = TargetState::REACHABLE;
+                if ($target->state !== TargetState::REACHABLE) {
+                    $this->redisTables->setTableEntry('snmp_target_health', $target->identifier, ['uuid'], [
+                        'uuid'  => $target->identifier,
+                        'state' => TargetState::REACHABLE->value,
+                    ]);
+                    $target->state = TargetState::REACHABLE;
+                }
             } catch (Throwable $e) {
                 if ($target->state !== TargetState::FAILING) {
                     if ($scenario->name === 'sysInfo') {
@@ -264,6 +277,10 @@ class SnmpScenarioPoller implements ImedgeWorker
                             $target->address,
                             $e->getMessage()
                         ));
+                        $this->redisTables->setTableEntry('snmp_target_health', $target->identifier, ['uuid'], [
+                            'uuid'  => $target->identifier,
+                            'state' => TargetState::FAILING->value,
+                        ]);
                     } else {
                         $this->logger->error(sprintf(
                             'Polling %s on %s failed: %s',
