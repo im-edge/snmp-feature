@@ -232,55 +232,20 @@ class SnmpScenarioPoller implements ImedgeWorker
      */
     protected function processTaskMessage(string $message): void
     {
-        foreach ($this->parseTaskMessage($message) as [$scenario, $targets]) {
-            foreach ($targets as $target) {
+        foreach (TaskMessage::parse($message, $this->logger, $this->targets, $this->scenarios)->tasks as $task) {
+            foreach ($task->targets as $target) {
                 // TODO: temporarily avoids too many requests. We need better reachability/health logic
-                if ($scenario->name !== 'sysInfo' && $target->state !== TargetState::REACHABLE) {
+                if ($task->scenario->name !== 'sysInfo' && $target->state !== TargetState::REACHABLE) {
                     continue;
                 }
-                $this->logger->debug(sprintf("Polling %s on %s (task triggered)", $scenario->name, $target->address));
-                $this->runScenarioAndShip($scenario, $target);
+                $this->logger->debug(sprintf(
+                    "Polling %s on %s (task triggered)",
+                    $task->scenario->name,
+                    $target->address
+                ));
+                $this->runScenarioAndShip($task->scenario, $target);
             }
         }
-    }
-
-    // publish snmp:task 8702b50f-4686-5c3e-988c-6287b95d0d24:f550e741-0869-43d7-9123-82ed252550c3,
-    //    1cb0212b-9bae-45ca-8328-94692159f1c9;
-    /**
-     * @param string $message
-     * @return array<int, array{0: ScenarioDefinition, 1: SnmpTarget[]}>
-     */
-    protected function parseTaskMessage(string $message): array
-    {
-        $tasks = [];
-        foreach (preg_split('/;/', $message, -1, PREG_SPLIT_NO_EMPTY) as $part) {
-            if (strpos($part, ':') === false) {
-                $this->logger->error("Got invalid message part on scenario poller subscription: $part");
-                continue;
-            }
-            [$scenarioIdx, $targetIdxs] = explode(':', $part, 2);
-            $scenario = $this->scenarios[$scenarioIdx] ?? null;
-            if ($scenario === null) {
-                $this->logger->warning('Poller has no such scenario: ' . $scenarioIdx);
-                continue;
-            }
-            $targets = [];
-            foreach (preg_split('/,/', $targetIdxs, -1, PREG_SPLIT_NO_EMPTY) as $targetIdx) {
-                $target = $this->targets->targets[$targetIdx] ?? null;
-                if ($target === null) {
-                    $this->logger->warning('Poller has no such target: ' . $targetIdx);
-                    continue;
-                }
-                $targets[] = $target;
-            }
-            if (empty($targets)) {
-                continue;
-            }
-
-            $tasks[] = [$scenario, $targets];
-        }
-
-        return $tasks;
     }
 
     protected function runScenarioAndShip(ScenarioDefinition $scenario, SnmpTarget $target): void
