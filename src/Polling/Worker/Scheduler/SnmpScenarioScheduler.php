@@ -8,6 +8,7 @@ use Evenement\EventEmitterTrait;
 use IMEdge\SnmpFeature\Polling\ScenarioDefinition\ConsistencyHelper;
 use IMEdge\SnmpFeature\Polling\ScenarioDefinition\ScenarioDefinition;
 use IMEdge\SnmpFeature\Polling\Worker\SnmpScenarioPoller;
+use IMEdge\SnmpFeature\Polling\Worker\TaskMessage;
 use IMEdge\SnmpFeature\Redis\ImedgeRedis;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTarget;
 use IMEdge\SnmpFeature\SnmpScenario\SnmpTargets;
@@ -78,7 +79,7 @@ class SnmpScenarioScheduler implements EventEmitterInterface
     public function triggerScenario(ScenarioDefinition $scenario, SnmpTarget $target): void
     {
         $this->redis->publish(
-            SnmpScenarioPoller::STREAM_NAME_TASKS,
+            TaskMessage::STREAM_NAME_TASKS,
             $scenario->uuid->toString() . ':' . $target->identifier
         );
     }

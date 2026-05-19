@@ -36,7 +36,6 @@ use function Amp\async;
 class SnmpScenarioPoller implements ImedgeWorker
 {
     public const STREAM_NAME_RESULTS = 'snmp:result';
-    public const STREAM_NAME_TASKS = 'snmp:tasks';
 
     protected RedisClient $client;
     protected RedisSubscriber $subscriber;
@@ -211,7 +210,7 @@ class SnmpScenarioPoller implements ImedgeWorker
         if ($this->subscription) {
             return;
         }
-        $this->subscription = $this->subscriber->subscribe(self::STREAM_NAME_TASKS);
+        $this->subscription = $this->subscriber->subscribe(TaskMessage::STREAM_NAME_TASKS);
         try {
             foreach ($this->subscription as $message) {
                 $this->processTaskMessage($message);

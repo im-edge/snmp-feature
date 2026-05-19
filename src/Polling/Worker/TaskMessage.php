@@ -7,6 +7,8 @@ use Psr\Log\LoggerInterface;
 
 class TaskMessage
 {
+    public const STREAM_NAME_TASKS = 'snmp:tasks';
+
     public function __construct(
         public readonly array $tasks,
     ) {

@@ -72,7 +72,7 @@ class SnmpScenarioController implements ImedgeWorker
     protected function pushScenariosSlotsToRedis(array $slots): void
     {
         foreach ($slots as $scenario => $targets) {
-            $this->redis->publish(SnmpScenarioPoller::STREAM_NAME_TASKS, $scenario . ':' . $targets);
+            $this->redis->publish(TaskMessage::STREAM_NAME_TASKS, $scenario . ':' . $targets);
         }
     }
 
