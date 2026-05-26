@@ -30,7 +30,7 @@
     "ext-redis": "*",
     "ext-sockets": "*",
     "imedge/node-provided-libs": "^0.20-rc",
-    "imedge/snmp-engine": "^0.1"
+    "imedge/snmp-engine": ">=0.1"
   },
   "require-dev": {
     "ramsey/uuid": "^4",
