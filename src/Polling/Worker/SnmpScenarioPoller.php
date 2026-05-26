@@ -324,7 +324,7 @@ class SnmpScenarioPoller implements ImedgeWorker
             self::STREAM_NAME_RESULTS,
             'MAXLEN',
             '~',
-            100_000,
+            20_000,
             '*',
             'scenario',
             $scenario->uuid->toString(),
